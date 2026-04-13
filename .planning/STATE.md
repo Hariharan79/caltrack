@@ -4,32 +4,40 @@
 
 ---
 
-## 🟢 Next action — Phase 11: Foods table CRUD + library UI
+## 🟢 Next action — Phase 11.5: Nutritionix Track API client
 
-Phase 10 shipped as `c3c419d` and was runtime-verified on 2026-04-13 in iOS sim. User walked through: log a meal → kill/reopen → persists; delete → persists; change calorie goal → persists; SQL-inserted row on the server appears on reload. Store is now Supabase-backed, all actions async, hydration + sign-out-reset wired into `app/_layout.tsx`, v1→v2 AsyncStorage migration helper in place.
+Phase 11 shipped (`9bb1b8f` + close-button follow-up) and runtime-verified on 2026-04-13. User walked through: add Chicken Breast / Oats / Apple, search narrows by substring, edit a food, delete Apple → confirmed via MCP that Chicken Breast + Oats remain in `public.foods` for the user and Apple is gone. Initial modal had no dismiss affordance (the inner Stack's headerLeft is empty by default on the root screen) — fixed by adding an explicit "Close" button that calls `router.back()`.
 
-One gotcha surfaced during runtime verification:
-- **Expo Go + Metro restart** breaks the AsyncStorage native bridge (`NativeModule: AsyncStorage is null` on import). Symptom: on fresh `expo start`, sign-in screen errors immediately. Fix: `xcrun simctl terminate <sim-uuid> host.exp.Exponent` then `xcrun simctl openurl <sim-uuid> exp://127.0.0.1:8081`. Sim UUID for this project's iPhone 17 Pro is `9C4876FA-93CE-4EC1-B705-8F06C5A2E72E` (may change on sim reset). Just killing + reopening Expo Go on the sim also works. Don't debug in code — it's a Metro/Expo Go bridge refresh issue, not a real bug.
+What Phase 11 added (context for Phase 11.5+):
+- `types/index.ts` — `Food`, `NewFoodInput`, `FoodUpdateInput` (camelCase mirror of `public.foods` row).
+- `lib/store.ts` — `foods` state + `addFood`/`updateFood`/`deleteFood` async actions + `searchFoods(foods, query)` selector. `hydrate()` loads foods in parallel with goals + entries. `reset()` clears foods too. All actions follow the Phase-10 pattern: Supabase round-trip first, then local state update. Sort-by-name is enforced on every mutation via `sortFoodsByName`.
+- `lib/foodForm.ts` — `FoodDraft` + `validateFoodDraft` + `foodToDraft` (parallel to `lib/goals.ts`). Trims name, requires positive kcal, rejects negative macros, normalizes empty serving size to null.
+- `components/FoodForm.tsx` — shared create/edit form with optional `onDelete` prop.
+- `components/FoodRow.tsx` — list row with name + optional serving / macros meta line + kcal rightmost.
+- `app/foods/` — modal stack with `index` (search + list + Add + Close), `new` (create), `[id]` (edit + delete with confirm alert).
+- `app/_layout.tsx` — registers `foods` as a modal route: `<Stack.Screen name="foods" options={{ presentation: 'modal' }} />`.
+- `app/(tabs)/profile.tsx` — secondary-variant "Food library (N)" button above the goals that pushes `/foods`.
 
-What Phase 10 added (context for Phase 11):
-- `lib/store.ts` — all store actions round-trip through Supabase first; new `hydrate(userId)` + `reset()` + `hydrated`/`hydrating`/`error` fields. `updateGoals` inserts a log-style row (D-14 schema — goals are history, current goal is `ORDER BY set_at DESC LIMIT 1`).
-- `lib/migrateLocal.ts` — one-shot v1→v2 AsyncStorage uploader, idempotent.
-- `app/_layout.tsx` — on session-resolve runs migration then hydrate; on sign-out calls reset. All happens inside `SessionGate`.
-- `jest.setup.js` — stubs `EXPO_PUBLIC_SUPABASE_*` so test suites that transitively import `lib/supabase.ts` don't blow up. Any new test that imports through `lib/*` inherits this automatically.
-- `app/(tabs)/index.tsx` + `profile.tsx` — async handlers with `Alert.alert` on failure, `loading` prop on Save goals button.
-
-Phase 11 plan (from ROADMAP.md):
-- Modal route `app/foods/` with list + create + edit screens. Use `expo-router` group navigation — similar pattern to `(auth)/`.
-- Components: `components/FoodRow.tsx`, `components/FoodForm.tsx`.
-- Store additions: `foods` slice with `addFood`/`updateFood`/`deleteFood`/`searchFoods(query)`. Re-use the async-Supabase pattern from Phase 10 (throw-on-error, update local after server confirms). Add `foods: Food[]` to `AppState` and load in `hydrate()`.
-- New type: `Food` in `types/index.ts` mapping to the `foods` table row (user-scoped, RLS on). Convert snake_case columns to camelCase the same way `rowToEntry` does in Phase 10.
-- UI surface: new section on Today or Profile that links to the library? Check ROADMAP — Phase 12 is when it's wired into logging; Phase 11 is just the library screen itself. For Phase 11, add an entry point on the Profile tab or a new tab — revisit.
-- **Runtime verification (N-11):** create 3 foods, edit one, delete one, confirm they round-trip to Supabase via MCP `execute_sql`.
+Phase 11.5 plan (from ROADMAP.md — D-24 reverses D-09 because Nutritionix Track has a free tier):
+- **BLOCKER:** user must supply `EXPO_PUBLIC_NUTRITIONIX_APP_ID` + `EXPO_PUBLIC_NUTRITIONIX_API_KEY` from developer.nutritionix.com before work starts. Ask for them up front.
+- `.env.example` additions for both keys. `lib/supabase.ts`-style fail-fast check in the new client.
+- `lib/nutritionix.ts` — typed thin client:
+  - `searchInstant(query)` → `{ common: NutritionixHit[]; branded: NutritionixHit[] }` via `GET /v2/search/instant`
+  - `parseNaturalLanguage(query)` → `NutritionixFood[]` via `POST /v2/natural/nutrients`
+  - Headers: `x-app-id`, `x-app-key`, `x-remote-user-id: 0`, `Content-Type: application/json`
+  - Maps Nutritionix shape → our internal `Food` shape (kcal, protein_g, carbs_g, fat_g, serving_size).
+  - Throws typed errors on non-200 (network, quota, 4xx).
+- Tests (mocked `fetch`): happy path for both endpoints, quota mapping, malformed response, missing optional macro fields.
+- No UI changes — Phase 12 wires this into the logging sheet.
+- Commit: `feat(nutritionix): track api client + tests`
 
 Known gotchas carrying forward:
+- **Metro restart + Expo Go bridge bug** — always run `xcrun simctl terminate <uuid> host.exp.Exponent` before (or between) `npx expo start` invocations. Sim UUID for iPhone 17 Pro: `9C4876FA-93CE-4EC1-B705-8F06C5A2E72E` (may change on reset). Symptom: `NativeModule: AsyncStorage is null` on import. It's never a code bug.
+- **expo-router typed routes** are on. Adding a new file-based route (e.g. a new folder under `app/`) leaves the generated `.expo/types/router.d.ts` stale, so `npx tsc --noEmit` will reject `router.push('/newroute')` with a cryptic type error listing all known routes. Fix: start Metro once (`npx expo start --no-dev --minify` in bg) until `.expo/types/router.d.ts` mtime changes, then kill it.
+- **Supabase `.update(payload)`** rejects `Record<string, unknown>` — it wants `TablesUpdate<'tablename'>` from `types/db`. Build typed patches when constructing partial updates (see `updateFood` in `lib/store.ts`).
+- **Modal nested-Stack dismiss** — the inner Stack's root screen has no back affordance. Always add an explicit `headerLeft` Close button on any `app/<group>/index.tsx` that's presented as a modal (see `app/foods/index.tsx`).
 - **RLS silence**: queries without an active session return zero rows, not an error. Check `useAppStore.getState().error`.
 - **day_key vs logged_at**: schema uses `day_key` (YYYY-MM-DD local) for bucketing. `lib/date.ts` already produces this.
-- **Metro restart bridge bug**: see above. Always terminate + reopen Expo Go when switching Metro sessions.
 
 ---
 
@@ -38,7 +46,7 @@ Known gotchas carrying forward:
 - **Repo:** `/Users/hari7aran/Desktop/caltrack-autopilot-test`
 - **Supabase project:** `gjzonxmvfaokjpgfykrn.supabase.co` (MCP connected)
 - **Branch:** `main` (all work lives here; no feature branches this project)
-- **Last commit:** `49a32c6` — `feat(auth): phase 9 — sign-in, sign-up, session-gated routing`
+- **Last commit:** `9bb1b8f` — `feat(foods): library with search + create + edit` (plus close-button follow-up)
 - **User mode:** interactive during the day, occasionally authorizes autonomous overnight work. See `~/.claude/projects/-Users-hari7aran-Desktop-caltrack-autopilot-test/memory/session_mode_overnight.md`.
 - **Read-before-edit hook:** this project has an aggressive PreToolUse hook that flags edits to files not read-in-session. It's noisy but edits still succeed. Just re-read and retry if needed.
 
@@ -69,8 +77,8 @@ Known gotchas carrying forward:
 - [x] Phase 8 — Supabase client + env plumbing (`23b6734`)
 - [x] Phase 9 — Auth flow + session-gated routing (`49a32c6`, runtime-verified 2026-04-13)
 - [x] Phase 10 — Store refactor to Supabase-backed (`c3c419d`, runtime-verified 2026-04-13)
-- [ ] **Phase 11 — Foods table CRUD + library UI** ← YOU ARE HERE
-- [ ] Phase 11.5 — Nutritionix Track API client (D-24)
+- [x] Phase 11 — Foods table CRUD + library UI (`9bb1b8f`, runtime-verified 2026-04-13)
+- [ ] **Phase 11.5 — Nutritionix Track API client (D-24)** ← YOU ARE HERE
 - [ ] Phase 12 — Food-first logging flow with stepper (wires Nutritionix)
 - [ ] Phase 13 — Bullshit detector (F-20)
 - [ ] Phase 14 — Edit entries in place
@@ -85,8 +93,8 @@ Known gotchas carrying forward:
 
 | Check | Status |
 |---|---|
-| `npx tsc --noEmit` | ✅ clean (end of Phase 10 code) |
-| `npx jest` | ✅ 110/110 passing (end of Phase 10 code) |
+| `npx tsc --noEmit` | ✅ clean (end of Phase 11) |
+| `npx jest` | ✅ 128/128 passing (end of Phase 11) |
 | `npx expo lint` | ✅ 0 errors, 0 warnings |
 | `lib/` coverage | ✅ (not re-measured this session — rerun `jest --coverage` if needed) |
 | Supabase MCP | ✅ connected, 20 tools available |
