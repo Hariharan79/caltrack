@@ -1,0 +1,11 @@
+{
+  "mode": "autonomous-overnight",
+  "session_started": "2026-04-13",
+  "granularity": "coarse",
+  "execution": "sequential",
+  "commit_docs": true,
+  "research": "skipped (greenfield-on-skeleton, no domain unknowns)",
+  "plan_check": "self",
+  "verifier": "self",
+  "models": "inherit"
+}
