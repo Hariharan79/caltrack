@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Plus } from 'phosphor-react-native';
@@ -27,10 +27,12 @@ export default function TodayScreen() {
   const [sheetVisible, setSheetVisible] = useState(false);
 
   const goals = useAppStore((s) => s.goals);
-  const totals = useAppStore(selectTodayTotals);
-  const entries = useAppStore(selectTodayEntries);
+  const rawEntries = useAppStore((s) => s.entries);
   const addEntry = useAppStore((s) => s.addEntry);
   const removeEntry = useAppStore((s) => s.removeEntry);
+
+  const totals = useMemo(() => selectTodayTotals(rawEntries), [rawEntries]);
+  const entries = useMemo(() => selectTodayEntries(rawEntries), [rawEntries]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

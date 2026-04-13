@@ -64,9 +64,9 @@ export const useAppStore = create<AppState>()(
   )
 );
 
-export function selectTodayEntries(state: AppState): MealEntry[] {
+export function selectTodayEntries(entries: readonly MealEntry[]): MealEntry[] {
   const today = todayKey();
-  return state.entries
+  return entries
     .filter((e) => e.dayKey === today)
     .sort((a, b) => b.loggedAt.localeCompare(a.loggedAt));
 }
@@ -96,8 +96,8 @@ export function computeDailyTotals(
   );
 }
 
-export function selectTodayTotals(state: AppState): DailyTotals {
-  return computeDailyTotals(state.entries, todayKey());
+export function selectTodayTotals(entries: readonly MealEntry[]): DailyTotals {
+  return computeDailyTotals(entries, todayKey());
 }
 
 export interface HistoryDay {
@@ -105,10 +105,10 @@ export interface HistoryDay {
   entries: MealEntry[];
 }
 
-export function selectHistory(state: AppState): HistoryDay[] {
+export function selectHistory(entries: readonly MealEntry[]): HistoryDay[] {
   const today = todayKey();
   const byDay = new Map<string, MealEntry[]>();
-  for (const entry of state.entries) {
+  for (const entry of entries) {
     if (entry.dayKey === today) continue;
     const existing = byDay.get(entry.dayKey);
     if (existing) {
@@ -120,8 +120,8 @@ export function selectHistory(state: AppState): HistoryDay[] {
 
   return Array.from(byDay.entries())
     .sort(([a], [b]) => b.localeCompare(a))
-    .map(([key, entries]) => ({
-      totals: computeDailyTotals(entries, key),
-      entries: [...entries].sort((a, b) => b.loggedAt.localeCompare(a.loggedAt)),
+    .map(([key, dayEntries]) => ({
+      totals: computeDailyTotals(dayEntries, key),
+      entries: [...dayEntries].sort((a, b) => b.loggedAt.localeCompare(a.loggedAt)),
     }));
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -9,8 +9,9 @@ const TAB_BAR_PADDING = 96;
 
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
-  const history = useAppStore(selectHistory);
+  const rawEntries = useAppStore((s) => s.entries);
   const goals = useAppStore((s) => s.goals);
+  const history = useMemo(() => selectHistory(rawEntries), [rawEntries]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const toggle = (dayKey: string) => {

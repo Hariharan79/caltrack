@@ -154,7 +154,7 @@ describe('selectors', () => {
       ] as MealEntry[],
     });
 
-    const result = selectTodayEntries(useAppStore.getState());
+    const result = selectTodayEntries(useAppStore.getState().entries);
     expect(result).toHaveLength(2);
     expect(result[0].name).toBe('Lunch');
     expect(result[1].name).toBe('Morning');
@@ -197,7 +197,7 @@ describe('selectors', () => {
       ] as MealEntry[],
     });
 
-    const totals = selectTodayTotals(useAppStore.getState());
+    const totals = selectTodayTotals(useAppStore.getState().entries);
     expect(totals.calories).toBe(800);
     expect(totals.proteinG).toBe(50);
     expect(totals.carbsG).toBe(100);
@@ -280,7 +280,7 @@ describe('selectors', () => {
       ] as MealEntry[],
     });
 
-    const history = selectHistory(useAppStore.getState());
+    const history = selectHistory(useAppStore.getState().entries);
     expect(history).toHaveLength(2);
     expect(history[0].totals.dayKey).toBe('2026-04-12');
     expect(history[0].totals.calories).toBe(500);
@@ -291,6 +291,6 @@ describe('selectors', () => {
   });
 
   it('selectHistory returns [] when there are no past entries', () => {
-    expect(selectHistory(useAppStore.getState())).toEqual([]);
+    expect(selectHistory(useAppStore.getState().entries)).toEqual([]);
   });
 });
