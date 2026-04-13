@@ -35,12 +35,20 @@ export default function ProfileScreen() {
     setDraft((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSave = () => {
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
     setSubmitted(true);
-    if (validation.parsed) {
-      updateGoals(validation.parsed);
+    if (!validation.parsed) return;
+    setSaving(true);
+    try {
+      await updateGoals(validation.parsed);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 1500);
+    } catch (err) {
+      Alert.alert('Could not save goals', err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -121,7 +129,13 @@ export default function ProfileScreen() {
           </Text>
         ) : null}
 
-        <PrimaryButton label="Save goals" onPress={handleSave} testID="save-goals" style={styles.saveButton} />
+        <PrimaryButton
+          label="Save goals"
+          onPress={handleSave}
+          loading={saving}
+          testID="save-goals"
+          style={styles.saveButton}
+        />
 
         <View style={styles.dangerZone}>
           <Text style={styles.dangerLabel}>Session</Text>

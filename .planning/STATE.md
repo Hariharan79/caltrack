@@ -4,29 +4,33 @@
 
 ---
 
-## 🟢 Next action — Phase 10: Store refactor to Supabase-backed
+## 🟡 Next action — runtime-verify Phase 10, then Phase 11
 
-Phase 9 shipped as `49a32c6`. User verified the full auth flow in iOS sim on 2026-04-13: sign-up (with real email, Supabase had Confirm email on — user liked keeping it), redirect to tabs, sign out, sign in, kill/reopen app — session persists.
+Phase 10 code shipped in this session on 2026-04-13. Static checks all green (tsc clean, 110/110 jest, expo lint 0/0). **Runtime verification (N-11) still pending** — user ping required before marking complete.
 
-Important context carried forward from Phase 9:
-- Supabase project has **email confirmation ON**. User explicitly liked this. Don't disable it.
-- User is running the app in **Expo Go** on iPhone 17 Pro sim (not a dev client). Cmd-R doesn't work for reloads; test by killing and reopening the app.
-- `supabase.auth.signUp` already works; `profiles` row is auto-created by the Phase 7 trigger.
-- Sign-out button lives in Profile tab, replacing the old "Reset all data" button. `clearAll` store action is still defined in `lib/store.ts` but has no UI caller — it'll become the per-user Supabase wipe later.
+What changed in Phase 10:
+- `lib/store.ts` — removed zustand-persist middleware; all actions now round-trip through Supabase before updating local state. New state fields: `hydrated`, `hydrating`, `error`. New actions: `hydrate(userId)` and `reset()`. `addEntry`/`removeEntry`/`updateGoals` are now async and throw on error (no local state change until Supabase write succeeds).
+- `updateGoals` inserts a new log-style row in the `goals` table (preserves history — D-14 alignment with schema).
+- `hydrate()` loads current goals (`order set_at desc limit 1`) + all `log_entries` for the user. Runs on session-resolve from `app/_layout.tsx`. Sign-out triggers `reset()`.
+- `lib/migrateLocal.ts` — one-shot v1→v2 AsyncStorage uploader. Reads the legacy `caltrack-store` JSON blob, normalizes entries, bulk-inserts into `log_entries`, then sets `caltrack-v2-migrated=true`. Safe on empty/malformed/already-done. Surfaces errors but does NOT mark done so it'll retry next boot.
+- `app/(tabs)/index.tsx` + `profile.tsx` — async handlers, `Alert.alert` on failure, `loading` prop on the Save goals button.
+- `jest.setup.js` — stubs `EXPO_PUBLIC_SUPABASE_*` env vars so test suites that transitively import `lib/supabase.ts` don't blow up at import time.
 
-Phase 10 outline (refer to ROADMAP.md for full scope):
-1. **Replace zustand-persist AsyncStorage adapter** with Supabase-queried state. AsyncStorage becomes an offline read cache only.
-2. **`hydrate()` action** — called on auth state change (from `useSession` effect), loads `goals` + today's `log_entries` from Supabase for the current user.
-3. **Async store actions** — `addEntry`, `deleteEntry`, `updateGoals` all become async and await Supabase writes before updating local state. Rollback on failure.
-4. **v1 → v2 migration helper** — on first boot of v2 for a user who already has local AsyncStorage v1 data, upload those entries to Supabase then clear the local store. One-shot.
-5. **Tests** — store actions against a mocked Supabase client (reuse the mock style from `__tests__/hooks/useSession.test.ts`); hydration; migration path happy + empty + conflict.
-6. **Runtime verification (N-11):** log an entry on the sim, refresh the app, entry still there. Then delete it. Then log on Supabase dashboard directly and see it appear after reload. User ping expected.
+**Runtime script for the sim (user walks through these):**
+1. App already signed in from Phase 9. Open Today — should be empty (fresh Supabase data for this account). If there's stale local data from earlier v1 runs, it should be uploaded by the migration helper on first boot.
+2. Tap + → log a meal → save. Entry should appear in Today.
+3. Kill + reopen app (or sign out / sign in). Entry should still appear (it's in Supabase now, not AsyncStorage).
+4. Go to Profile → change calorie goal → Save → should show "Goals saved". Reopen app → goal persists.
+5. Delete an entry from Today (swipe or tap). Reopen → still gone.
+6. On the Supabase dashboard, manually insert a `log_entries` row for your user_id → reload the app → should appear in Today. (This proves hydrate pulls fresh data.)
+7. Sign out → data should disappear from the tabs (reset called). Sign back in → data reappears.
 
-Known gotchas:
-- **RLS silence**: queries without an active session return zero rows, not an error. If something "doesn't work" in Phase 10, first check the session exists before debugging data logic.
-- **Race on auth change**: don't hydrate before `useSession` resolves — wait for `loading=false` and a non-null `session`.
-- **day_key vs logged_at**: schema uses `day_key` (YYYY-MM-DD local string) for bucketing. The existing `lib/date.ts` already produces this format (D-04). Use it.
-- **Store currently uses zustand-persist middleware**. Removing the middleware changes the shape of the default export — update all imports and `__tests__/lib/store.test.ts` accordingly.
+If any step fails, likely culprits:
+- **RLS silence**: queries without an active session return zero rows, not an error. `useAppStore.getState().error` should surface anything the supabase client did return.
+- **Hydration race**: the `_layout.tsx` effect runs migration → hydrate sequentially; if hydrate fires before the session token is on the client, it'll look like empty data. Check `hydrated` flag.
+- **Missing migration commit**: if a legacy v1 entry appears after sign-in, the migration worked; if not and there was local v1 data, `caltrack-v2-migrated` may have been set prematurely.
+
+Once verified, move to Phase 11 (Foods table CRUD + library UI). The store now has a clean pattern for Supabase-backed async actions — reuse it for `addFood`/`updateFood`/`deleteFood`.
 
 ---
 
@@ -65,7 +69,7 @@ Known gotchas:
 - [x] Phase 7 — Supabase schema + RLS (`7032acc`, migrations `20260413000000` + `20260413000100`)
 - [x] Phase 8 — Supabase client + env plumbing (`23b6734`)
 - [x] Phase 9 — Auth flow + session-gated routing (`49a32c6`, runtime-verified 2026-04-13)
-- [ ] **Phase 10 — Store refactor to Supabase-backed** ← YOU ARE HERE
+- [~] **Phase 10 — Store refactor to Supabase-backed** (code shipped 2026-04-13, runtime verification pending) ← YOU ARE HERE
 - [ ] Phase 11 — Foods table CRUD + library UI
 - [ ] Phase 11.5 — Nutritionix Track API client (D-24)
 - [ ] Phase 12 — Food-first logging flow with stepper (wires Nutritionix)
@@ -82,10 +86,10 @@ Known gotchas:
 
 | Check | Status |
 |---|---|
-| `npx tsc --noEmit` | ✅ clean (end of Phase 9) |
-| `npx jest` | ✅ 98/98 passing (end of Phase 9) |
+| `npx tsc --noEmit` | ✅ clean (end of Phase 10 code) |
+| `npx jest` | ✅ 110/110 passing (end of Phase 10 code) |
 | `npx expo lint` | ✅ 0 errors, 0 warnings |
-| `lib/` coverage | ✅ 100% statements / 94% branches |
+| `lib/` coverage | ✅ (not re-measured this session — rerun `jest --coverage` if needed) |
 | Supabase MCP | ✅ connected, 20 tools available |
 | Supabase schema | ✅ 5 tables + 1 view + RLS on all, 0 rows |
 | Supabase security advisors | ✅ 0 warnings |

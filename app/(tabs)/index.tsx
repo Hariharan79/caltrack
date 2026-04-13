@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Plus } from 'phosphor-react-native';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -34,6 +34,22 @@ export default function TodayScreen() {
   const totals = useMemo(() => selectTodayTotals(rawEntries), [rawEntries]);
   const entries = useMemo(() => selectTodayEntries(rawEntries), [rawEntries]);
 
+  const handleAddEntry = async (input: Parameters<typeof addEntry>[0]) => {
+    try {
+      await addEntry(input);
+    } catch (err) {
+      Alert.alert('Could not save meal', err instanceof Error ? err.message : 'Unknown error');
+    }
+  };
+
+  const handleRemoveEntry = async (id: string) => {
+    try {
+      await removeEntry(id);
+    } catch (err) {
+      Alert.alert('Could not delete meal', err instanceof Error ? err.message : 'Unknown error');
+    }
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
@@ -51,7 +67,7 @@ export default function TodayScreen() {
         <TotalsCard totals={totals} goals={goals} />
 
         <Text style={styles.sectionTitle}>Meals</Text>
-        <EntriesList entries={entries} onDelete={removeEntry} emptyText="Tap + to log your first meal" />
+        <EntriesList entries={entries} onDelete={handleRemoveEntry} emptyText="Tap + to log your first meal" />
       </ScrollView>
 
       <Pressable
@@ -67,7 +83,7 @@ export default function TodayScreen() {
       <AddMealSheet
         visible={sheetVisible}
         onClose={() => setSheetVisible(false)}
-        onSubmit={(input) => addEntry(input)}
+        onSubmit={handleAddEntry}
       />
     </View>
   );

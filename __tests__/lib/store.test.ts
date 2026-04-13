@@ -1,3 +1,60 @@
+type QueryResult = { data: unknown; error: { message: string } | null };
+
+jest.mock('@/lib/supabase', () => {
+  const state = {
+    session: null as { user: { id: string } } | null,
+    queue: [] as QueryResult[],
+    calls: [] as Array<{ table: string; method: string; args: unknown[] }>,
+  };
+
+  const makeBuilder = (table: string) => {
+    const shift = (): QueryResult => state.queue.shift() ?? { data: null, error: null };
+    const record = (method: string, args: unknown[]) => {
+      state.calls.push({ table, method, args });
+    };
+    const builder: Record<string, unknown> = {};
+    const chain = (method: string) => (...args: unknown[]) => {
+      record(method, args);
+      return builder;
+    };
+    builder.insert = chain('insert');
+    builder.delete = chain('delete');
+    builder.update = chain('update');
+    builder.select = chain('select');
+    builder.eq = chain('eq');
+    builder.order = chain('order');
+    builder.limit = chain('limit');
+    builder.single = jest.fn(async () => {
+      record('single', []);
+      return shift();
+    });
+    builder.maybeSingle = jest.fn(async () => {
+      record('maybeSingle', []);
+      return shift();
+    });
+    builder.then = (resolve: (r: QueryResult) => unknown, reject?: (err: unknown) => unknown) => {
+      record('await', []);
+      return Promise.resolve(shift()).then(resolve, reject);
+    };
+    return builder;
+  };
+
+  return {
+    __esModule: true,
+    __state: state,
+    supabase: {
+      auth: {
+        getSession: jest.fn(async () => ({
+          data: { session: state.session },
+          error: null,
+        })),
+      },
+      from: jest.fn((table: string) => makeBuilder(table)),
+    },
+  };
+});
+
+import * as supabaseMock from '@/lib/supabase';
 import {
   useAppStore,
   selectTodayEntries,
@@ -9,114 +66,308 @@ import {
 import type { MealEntry } from '@/types';
 import { todayKey } from '@/lib/date';
 
-jest.mock('@react-native-async-storage/async-storage', () =>
-  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
-);
+const mock = supabaseMock as unknown as {
+  __state: {
+    session: { user: { id: string } } | null;
+    queue: QueryResult[];
+    calls: Array<{ table: string; method: string; args: unknown[] }>;
+  };
+};
 
-function reset() {
-  useAppStore.getState().clearAll();
+function enqueue(result: QueryResult) {
+  mock.__state.queue.push(result);
 }
 
-describe('useAppStore — actions', () => {
-  beforeEach(() => reset());
+function signedIn(userId = 'user-1') {
+  mock.__state.session = { user: { id: userId } };
+}
 
-  it('starts with no entries and default goals', () => {
+beforeEach(() => {
+  mock.__state.session = null;
+  mock.__state.queue = [];
+  mock.__state.calls = [];
+  useAppStore.getState().reset();
+});
+
+describe('useAppStore — initial state', () => {
+  it('starts empty with default goals and hydrated=false', () => {
     const state = useAppStore.getState();
     expect(state.entries).toHaveLength(0);
     expect(state.goals).toEqual(DEFAULT_GOALS);
+    expect(state.hydrated).toBe(false);
+    expect(state.hydrating).toBe(false);
+    expect(state.error).toBeNull();
   });
+});
 
-  it('addEntry appends a meal with id, loggedAt, and dayKey set', () => {
-    useAppStore.getState().addEntry({
-      name: 'Oats',
+describe('useAppStore.addEntry', () => {
+  it('inserts via supabase and prepends the returned row to local state', async () => {
+    signedIn('user-1');
+    enqueue({
+      data: {
+        id: 'row-1',
+        user_id: 'user-1',
+        name: 'Oats',
+        kcal: 320,
+        protein_g: 12,
+        carbs_g: 55,
+        fat_g: 6,
+        logged_at: '2026-04-13T08:00:00.000Z',
+        day_key: todayKey(),
+        food_id: null,
+        meal_type: null,
+        status: 'eaten',
+        servings: 1,
+        created_at: '2026-04-13T08:00:00.000Z',
+        updated_at: '2026-04-13T08:00:00.000Z',
+      },
+      error: null,
+    });
+
+    const entry = await useAppStore.getState().addEntry({
+      name: '  Oats  ',
       calories: 320,
       proteinG: 12,
       carbsG: 55,
       fatG: 6,
     });
-    const state = useAppStore.getState();
-    expect(state.entries).toHaveLength(1);
-    const entry = state.entries[0];
-    expect(entry.id).toMatch(/^meal_/);
+
+    expect(entry.id).toBe('row-1');
     expect(entry.name).toBe('Oats');
-    expect(entry.calories).toBe(320);
-    expect(entry.dayKey).toBe(todayKey());
-    expect(typeof entry.loggedAt).toBe('string');
+    expect(useAppStore.getState().entries).toHaveLength(1);
+    expect(useAppStore.getState().entries[0].id).toBe('row-1');
+
+    const insertCall = mock.__state.calls.find((c) => c.method === 'insert');
+    expect(insertCall).toBeDefined();
+    const payload = insertCall!.args[0] as Record<string, unknown>;
+    expect(payload.user_id).toBe('user-1');
+    expect(payload.name).toBe('Oats');
+    expect(payload.kcal).toBe(320);
   });
 
-  it('addEntry trims whitespace from name', () => {
-    useAppStore.getState().addEntry({
-      name: '  Burrito  ',
-      calories: 700,
-      proteinG: null,
-      carbsG: null,
-      fatG: null,
-    });
-    expect(useAppStore.getState().entries[0].name).toBe('Burrito');
-  });
-
-  it('addEntry generates unique ids for sequential calls', () => {
-    const add = useAppStore.getState().addEntry;
-    add({ name: 'A', calories: 1, proteinG: null, carbsG: null, fatG: null });
-    add({ name: 'B', calories: 2, proteinG: null, carbsG: null, fatG: null });
-    const ids = useAppStore.getState().entries.map((e) => e.id);
-    expect(new Set(ids).size).toBe(2);
-  });
-
-  it('removeEntry deletes by id', () => {
-    useAppStore.getState().addEntry({
-      name: 'A',
-      calories: 100,
-      proteinG: null,
-      carbsG: null,
-      fatG: null,
-    });
-    const id = useAppStore.getState().entries[0].id;
-    useAppStore.getState().removeEntry(id);
+  it('throws when not authenticated and does not touch local state', async () => {
+    await expect(
+      useAppStore.getState().addEntry({
+        name: 'A',
+        calories: 100,
+        proteinG: null,
+        carbsG: null,
+        fatG: null,
+      })
+    ).rejects.toThrow(/authenticated/i);
     expect(useAppStore.getState().entries).toHaveLength(0);
   });
 
-  it('removeEntry is a no-op for unknown ids', () => {
-    useAppStore.getState().addEntry({
-      name: 'A',
-      calories: 100,
-      proteinG: null,
-      carbsG: null,
-      fatG: null,
+  it('throws the supabase error message and does not touch local state', async () => {
+    signedIn();
+    enqueue({ data: null, error: { message: 'permission denied' } });
+    await expect(
+      useAppStore.getState().addEntry({
+        name: 'A',
+        calories: 100,
+        proteinG: null,
+        carbsG: null,
+        fatG: null,
+      })
+    ).rejects.toThrow('permission denied');
+    expect(useAppStore.getState().entries).toHaveLength(0);
+  });
+});
+
+describe('useAppStore.removeEntry', () => {
+  it('deletes via supabase then removes from local state', async () => {
+    useAppStore.setState({
+      entries: [
+        {
+          id: 'row-1',
+          name: 'A',
+          calories: 100,
+          proteinG: null,
+          carbsG: null,
+          fatG: null,
+          loggedAt: '2026-04-13T08:00:00.000Z',
+          dayKey: todayKey(),
+        },
+      ],
     });
-    useAppStore.getState().removeEntry('not-a-real-id');
+    enqueue({ data: null, error: null });
+
+    await useAppStore.getState().removeEntry('row-1');
+    expect(useAppStore.getState().entries).toHaveLength(0);
+
+    const deleteCall = mock.__state.calls.find((c) => c.method === 'delete');
+    expect(deleteCall).toBeDefined();
+  });
+
+  it('leaves local state untouched when supabase errors', async () => {
+    useAppStore.setState({
+      entries: [
+        {
+          id: 'row-1',
+          name: 'A',
+          calories: 100,
+          proteinG: null,
+          carbsG: null,
+          fatG: null,
+          loggedAt: '2026-04-13T08:00:00.000Z',
+          dayKey: todayKey(),
+        },
+      ],
+    });
+    enqueue({ data: null, error: { message: 'network down' } });
+    await expect(useAppStore.getState().removeEntry('row-1')).rejects.toThrow('network down');
     expect(useAppStore.getState().entries).toHaveLength(1);
   });
+});
 
-  it('updateGoals merges only supplied keys', () => {
-    useAppStore.getState().updateGoals({ calorieGoal: 2500 });
-    expect(useAppStore.getState().goals.calorieGoal).toBe(2500);
-    expect(useAppStore.getState().goals.proteinGoalG).toBe(DEFAULT_GOALS.proteinGoalG);
+describe('useAppStore.updateGoals', () => {
+  it('inserts a new log-style row with merged goals and updates local state', async () => {
+    signedIn('user-1');
+    useAppStore.setState({
+      goals: {
+        calorieGoal: 2000,
+        proteinGoalG: null,
+        carbsGoalG: null,
+        fatGoalG: null,
+      },
+    });
 
-    useAppStore.getState().updateGoals({ proteinGoalG: 150 });
+    enqueue({
+      data: {
+        id: 'goals-1',
+        user_id: 'user-1',
+        kcal_goal: 2500,
+        protein_goal_g: null,
+        carbs_goal_g: null,
+        fat_goal_g: null,
+        set_at: '2026-04-13T09:00:00.000Z',
+      },
+      error: null,
+    });
+
+    await useAppStore.getState().updateGoals({ calorieGoal: 2500 });
     expect(useAppStore.getState().goals.calorieGoal).toBe(2500);
-    expect(useAppStore.getState().goals.proteinGoalG).toBe(150);
+
+    const insertCall = mock.__state.calls.find((c) => c.method === 'insert');
+    expect(insertCall).toBeDefined();
+    const payload = insertCall!.args[0] as Record<string, unknown>;
+    expect(payload.user_id).toBe('user-1');
+    expect(payload.kcal_goal).toBe(2500);
+    expect(payload.protein_goal_g).toBeNull();
   });
 
-  it('clearAll resets entries and goals to defaults', () => {
-    useAppStore.getState().addEntry({
-      name: 'A',
-      calories: 100,
-      proteinG: null,
-      carbsG: null,
-      fatG: null,
+  it('throws when not authenticated', async () => {
+    await expect(
+      useAppStore.getState().updateGoals({ calorieGoal: 2500 })
+    ).rejects.toThrow(/authenticated/i);
+  });
+
+  it('throws and leaves local goals unchanged on supabase error', async () => {
+    signedIn();
+    enqueue({ data: null, error: { message: 'rls denied' } });
+    await expect(
+      useAppStore.getState().updateGoals({ calorieGoal: 2500 })
+    ).rejects.toThrow('rls denied');
+    expect(useAppStore.getState().goals).toEqual(DEFAULT_GOALS);
+  });
+});
+
+describe('useAppStore.hydrate', () => {
+  it('loads goals + entries and flips hydrated=true', async () => {
+    enqueue({
+      data: {
+        id: 'goals-1',
+        user_id: 'user-1',
+        kcal_goal: 2200,
+        protein_goal_g: 150,
+        carbs_goal_g: null,
+        fat_goal_g: null,
+        set_at: '2026-04-13T09:00:00.000Z',
+      },
+      error: null,
     });
-    useAppStore.getState().updateGoals({ calorieGoal: 3000 });
-    useAppStore.getState().clearAll();
+    enqueue({
+      data: [
+        {
+          id: 'row-1',
+          user_id: 'user-1',
+          name: 'Oats',
+          kcal: 320,
+          protein_g: 12,
+          carbs_g: 55,
+          fat_g: 6,
+          logged_at: '2026-04-13T08:00:00.000Z',
+          day_key: '2026-04-13',
+          food_id: null,
+          meal_type: null,
+          status: 'eaten',
+          servings: 1,
+          created_at: '2026-04-13T08:00:00.000Z',
+          updated_at: '2026-04-13T08:00:00.000Z',
+        },
+      ],
+      error: null,
+    });
+
+    await useAppStore.getState().hydrate('user-1');
+    const state = useAppStore.getState();
+    expect(state.hydrated).toBe(true);
+    expect(state.hydrating).toBe(false);
+    expect(state.goals.calorieGoal).toBe(2200);
+    expect(state.goals.proteinGoalG).toBe(150);
+    expect(state.entries).toHaveLength(1);
+    expect(state.entries[0].id).toBe('row-1');
+  });
+
+  it('falls back to DEFAULT_GOALS when goals row is missing', async () => {
+    enqueue({ data: null, error: null });
+    enqueue({ data: [], error: null });
+
+    await useAppStore.getState().hydrate('user-1');
+    expect(useAppStore.getState().goals).toEqual(DEFAULT_GOALS);
+    expect(useAppStore.getState().entries).toHaveLength(0);
+    expect(useAppStore.getState().hydrated).toBe(true);
+  });
+
+  it('records error and does not mark hydrated on failure', async () => {
+    enqueue({ data: null, error: { message: 'bad jwt' } });
+    enqueue({ data: null, error: null });
+
+    await expect(useAppStore.getState().hydrate('user-1')).rejects.toThrow('bad jwt');
+    expect(useAppStore.getState().hydrated).toBe(false);
+    expect(useAppStore.getState().error).toMatch(/bad jwt/);
+  });
+});
+
+describe('useAppStore.reset', () => {
+  it('clears entries, goals, hydrated flag, and error', () => {
+    useAppStore.setState({
+      entries: [
+        {
+          id: 'x',
+          name: 'X',
+          calories: 100,
+          proteinG: null,
+          carbsG: null,
+          fatG: null,
+          loggedAt: '2026-04-13T08:00:00.000Z',
+          dayKey: todayKey(),
+        },
+      ],
+      goals: { ...DEFAULT_GOALS, calorieGoal: 2500 },
+      hydrated: true,
+      error: 'something',
+    });
+    useAppStore.getState().reset();
     const state = useAppStore.getState();
     expect(state.entries).toHaveLength(0);
     expect(state.goals).toEqual(DEFAULT_GOALS);
+    expect(state.hydrated).toBe(false);
+    expect(state.error).toBeNull();
   });
 });
 
 describe('selectors', () => {
-  beforeEach(() => reset());
-
   it('selectTodayEntries returns only entries with today dayKey, newest first', () => {
     const today = todayKey();
     useAppStore.setState({
