@@ -5,6 +5,7 @@ import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAppStore } from '@/lib/store';
 import { TextField } from '@/components/TextField';
 import { PrimaryButton } from '@/components/PrimaryButton';
+import { signOut } from '@/lib/auth';
 import {
   goalsToDraft,
   validateGoalsDraft,
@@ -17,11 +18,11 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const goals = useAppStore((s) => s.goals);
   const updateGoals = useAppStore((s) => s.updateGoals);
-  const clearAll = useAppStore((s) => s.clearAll);
 
   const [draft, setDraft] = useState<GoalsDraft>(() => goalsToDraft(goals));
   const [submitted, setSubmitted] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     setDraft(goalsToDraft(goals));
@@ -43,21 +44,24 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleReset = () => {
-    Alert.alert(
-      'Reset everything?',
-      'This will delete all logged meals and reset your goals to defaults.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: () => {
-            clearAll();
-          },
+  const handleSignOut = () => {
+    Alert.alert('Sign out?', 'Your data stays on the server.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign out',
+        style: 'destructive',
+        onPress: async () => {
+          setSigningOut(true);
+          try {
+            await signOut();
+          } catch (err) {
+            Alert.alert('Sign out failed', err instanceof Error ? err.message : 'Unknown error');
+          } finally {
+            setSigningOut(false);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   return (
@@ -120,12 +124,13 @@ export default function ProfileScreen() {
         <PrimaryButton label="Save goals" onPress={handleSave} testID="save-goals" style={styles.saveButton} />
 
         <View style={styles.dangerZone}>
-          <Text style={styles.dangerLabel}>Danger zone</Text>
+          <Text style={styles.dangerLabel}>Session</Text>
           <PrimaryButton
-            label="Reset all data"
-            onPress={handleReset}
+            label="Sign out"
+            onPress={handleSignOut}
             variant="danger"
-            testID="reset-data"
+            loading={signingOut}
+            testID="sign-out"
           />
         </View>
       </ScrollView>
