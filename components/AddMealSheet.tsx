@@ -9,7 +9,7 @@ import {
   ScrollView,
   Pressable,
 } from 'react-native';
-import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { TextField } from './TextField';
 import { PrimaryButton } from './PrimaryButton';
 import type { NewMealInput } from '@/types';
