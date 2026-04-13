@@ -53,3 +53,87 @@ The skeleton already has `__tests__/constants/...` and `__tests__/navigation/...
 ## D-13 — Reset action is destructive but discoverable
 
 Profile > Reset wipes entries and goals. Required for testing during development. Hidden behind a confirm dialog so it's not a footgun.
+
+---
+
+# Morning Walkthrough Decisions — 2026-04-13
+
+User reviewed the overnight build and answered 10 questions on scope. The decisions below **supersede** or extend the overnight ones.
+
+## D-14 — Full multi-user with Supabase auth + RLS (**supersedes D-01, D-02, D-05**)
+
+The caltrack sandbox has an attached Supabase project (`gjzonxmvfaokjpgfykrn.supabase.co`). Dropping the local-only stance:
+
+- Real `user_id` foreign keys on every user-scoped table.
+- Supabase email/password auth with a sign-in + sign-up screen gate.
+- Row-Level Security on every table; each user sees only their own rows.
+- zustand remains as the in-memory state layer, but the *canonical* state lives in Postgres. AsyncStorage becomes an offline read cache, not the source of truth.
+- The existing `Profile > Reset` flow becomes "Reset my data" scoped to the authenticated user, not a wipe of the device.
+
+Trade-off: more moving parts (network, offline, conflict), but the user explicitly asked for cross-device sync. The `.planning/REQUIREMENTS.md` now lists F-11 (auth), F-12 (sync), F-13 (logout) as v2 requirements.
+
+## D-15 — Scope explosion is intentional (**extends D-09, D-10**)
+
+Overnight build deferred everything that wasn't trivial. The walkthrough brought 7 of those deferrals back in:
+
+- F-14 — edit entries in place
+- F-15 — weight tracking
+- F-16 — weight trend chart
+- F-17 — barcode scanning
+- F-18 — serving sizes + reusable food library (reverses D-09)
+- F-19 — meal planning (plan future meals as "planned", mark "eaten")
+- F-20 — bullshit detector (see D-20)
+
+`ROADMAP.md` phases 7-20 sequence these.
+
+## D-16 — Food library is the primary log path, quick-add is secondary (Q3)
+
+Tapping `+` on Today opens a food picker (search + recents) with a "Quick add" tab for raw-calorie entry. Most users will repeat-log the same 20 foods, so optimize for that. Quick-add stays one tap away for one-off meals at restaurants / events.
+
+## D-17 — Servings stepper is a hybrid (Q4)
+
+`[−] 1.0 servings [+]` with tap-to-type. Steppers for common fractions (0.5, 1, 2), tap the number to open a numeric keyboard for exact amounts (`1.37`). Same UX on both Goals and Log forms for consistency.
+
+## D-18 — Floating `+` stays (Q5, **reaffirms D-08**)
+
+FAB on Today only, no top-bar `+`, no cross-tab global log action. Simpler navigation model.
+
+## D-19 — Keep four text fields on Profile goals (Q6)
+
+Rejected sliders, steppers, and preset-based macro derivation. Text fields are fastest to build, most flexible, least opinionated about diet style.
+
+## D-20 — Bullshit detector is a real feature, not a nice-to-have (Q6 bonus → F-20)
+
+Pure-function sanity check: implied_kcal = 4·protein + 4·carbs + 9·fat. Tolerance and severity are build-time decisions for Phase 13:
+
+- **Tolerance (tentative):** `max(25 kcal, 15% of claimed)`. Below → ok. Above → flag.
+- **Severity (tentative):** `ok | mild | blatant` based on magnitude of mismatch. Mild = yellow chip. Blatant = red ⚠ on the row.
+- **Placement:** (a) inline warning when saving a food definition, (b) ⚠ badge on `EntryRow` for suspect entries so users can spot lying labels.
+
+These numbers are stub guesses. We'll tune once we have real data.
+
+## D-21 — History becomes a calendar grid (Q7, **supersedes Phase 4's flat list**)
+
+Phase 18 rewrites `app/(tabs)/history.tsx` from the current expandable list to a month grid. Each cell = one day, colored dot = goal hit/miss/over. Tap a cell → existing expanded-day detail view. Needs month navigation (arrows + "today" jump button).
+
+The existing `HistoryDay` component can be repurposed for the tap-to-expand detail panel; the grid itself is new.
+
+## D-22 — Brand voice: "dry with light personality" (Q9)
+
+Applies to every user-facing string. Examples the user liked:
+
+- Today empty: *"An empty log. What a glorious, untouched canvas."*
+- History empty: *"Zero calories tracked. Zero judgement."*
+
+Guidelines for writing in this voice:
+
+- Short. One sentence is almost always enough.
+- Dry observation + a single turn of personality. Not jokes, not hype.
+- Never exclamation marks unless ironic. Never emoji.
+- Never "let's", never "you got this", never coach-speak.
+
+Phase 19 is a dedicated copy pass across the whole app.
+
+## D-23 — Keep current date labels (Q10, **reaffirms D-04 with spec**)
+
+`formatDayLabel` output stays as-is: `Today` / `Yesterday` / `Mon, Apr 12`. No relative ("2 days ago") formatting. With the calendar grid landing in Phase 18, relative labels would be redundant — the grid is the date UI.
