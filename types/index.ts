@@ -1,26 +1,25 @@
-export interface FoodEntry {
+export interface MealEntry {
   id: string;
-  userId: string;
-  foodName: string;
+  name: string;
   calories: number;
   proteinG: number | null;
   carbsG: number | null;
   fatG: number | null;
   loggedAt: string;
-  source: 'nutritionix' | 'local_db' | 'manual';
+  dayKey: string;
 }
 
-export interface UserProfile {
-  id: string;
+export type NewMealInput = Omit<MealEntry, 'id' | 'loggedAt' | 'dayKey'>;
+
+export interface Goals {
   calorieGoal: number;
   proteinGoalG: number | null;
   carbsGoalG: number | null;
   fatGoalG: number | null;
-  createdAt: string;
 }
 
 export interface DailyTotals {
-  date: string;
+  dayKey: string;
   calories: number;
   proteinG: number;
   carbsG: number;
