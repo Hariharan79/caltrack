@@ -4,37 +4,20 @@
 
 ---
 
-## 🟢 Next action — Phase 8: Supabase client + env plumbing
+## 🟢 Next action — Phase 9: Auth flow + session-gated routing
 
-Everything for Phase 8 is set up and unblocked. Exact steps:
+Phase 8 shipped as `23b6734`. Supabase client is wired (`lib/supabase.ts`), env vars load, Metro bundles clean. Types generated at `types/db.ts`.
 
-1. **Fetch the anon key.** Call `mcp__supabase__get_publishable_keys()` (Supabase MCP is already configured in this repo; if the tool isn't showing, run `/reload-plugins`).
-2. **Write `.env.example`** — committed to git, placeholder values only:
-   ```
-   EXPO_PUBLIC_SUPABASE_URL=https://gjzonxmvfaokjpgfykrn.supabase.co
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-   ```
-3. **Write `.env`** — gitignored (already in `.gitignore`), real values from step 1.
-4. **Install the client:** `npx expo install @supabase/supabase-js`
-5. **Generate DB types:** `mcp__supabase__generate_typescript_types()` → write output to `types/db.ts`
-6. **Write `lib/supabase.ts`** — a singleton client that:
-   - Reads URL + anon key from `process.env.EXPO_PUBLIC_*`
-   - Throws on startup if either is missing (per N-12: fail fast, don't silently misbehave)
-   - Uses `AsyncStorage` as the auth session store (already installed, v2.2.0)
-   - Sets `autoRefreshToken: true`, `persistSession: true`, `detectSessionInUrl: false` (the last is key for React Native — no URL handling)
-7. **Commit** as `feat(supabase): client + env plumbing + generated types`. Conventional message format.
+Phase 9 outline (refer to ROADMAP.md for full scope):
+1. **Sign-in / sign-up screens** — email+password via `supabase.auth.signInWithPassword` / `signUp`. Dry error messages, no flash.
+2. **Session state hook** — subscribe to `supabase.auth.onAuthStateChange`, expose `useSession()`.
+3. **Session-gated routing** — expo-router group for `(auth)` vs `(tabs)`. Redirect unauthenticated users to sign-in, authenticated users away from auth group.
+4. **Sign-out action** — wire from profile tab.
+5. **Verification (N-11):** `tsc`, `jest`, and a real simulator boot — sign up a throwaway user, confirm profile row is auto-created (trigger from Phase 7), sign out, sign back in, kill/reload app, session persists.
 
-**Verification before marking Phase 8 done (per N-11):**
-- `npx tsc --noEmit` clean
-- `npx jest` 87+ passing (no existing test should break)
-- Boot the simulator: `npx expo start --ios` — app should start normally. Metro should not complain about missing env vars. No runtime errors about the supabase client.
-
-**Known gotchas for Phase 8:**
-- Don't put the service role key anywhere. Only the anon key. (N-12)
-- `detectSessionInUrl` must be false for React Native.
-- The session persistence + AsyncStorage wiring is a common source of "stays logged out on reload" bugs. Double-check after booting.
-
-After Phase 8 → next up is Phase 9 (auth screens + session-gated routing). See ROADMAP.md.
+Known gotchas:
+- `profiles` row is auto-created by the `handle_new_user()` trigger — don't insert manually, just read.
+- RLS is on every table, so every query needs an authenticated session or it returns zero rows silently. Good: exposes auth bugs fast. Bad: easy to misdiagnose as a data issue.
 
 ---
 
@@ -43,7 +26,7 @@ After Phase 8 → next up is Phase 9 (auth screens + session-gated routing). See
 - **Repo:** `/Users/hari7aran/Desktop/caltrack-autopilot-test`
 - **Supabase project:** `gjzonxmvfaokjpgfykrn.supabase.co` (MCP connected)
 - **Branch:** `main` (all work lives here; no feature branches this project)
-- **Last commit:** `7032acc` — `feat(db): phase 7 — supabase schema with RLS, triggers, view`
+- **Last commit:** `23b6734` — `feat(supabase): phase 8 — client + env plumbing + generated types`
 - **User mode:** interactive during the day, occasionally authorizes autonomous overnight work. See `~/.claude/projects/-Users-hari7aran-Desktop-caltrack-autopilot-test/memory/session_mode_overnight.md`.
 - **Read-before-edit hook:** this project has an aggressive PreToolUse hook that flags edits to files not read-in-session. It's noisy but edits still succeed. Just re-read and retry if needed.
 
@@ -71,8 +54,8 @@ After Phase 8 → next up is Phase 9 (auth screens + session-gated routing). See
 ## v2 phase progress
 
 - [x] Phase 7 — Supabase schema + RLS (`7032acc`, migrations `20260413000000` + `20260413000100`)
-- [ ] **Phase 8 — Supabase client + env plumbing** ← YOU ARE HERE
-- [ ] Phase 9 — Auth flow + session-gated routing
+- [x] Phase 8 — Supabase client + env plumbing (`23b6734`)
+- [ ] **Phase 9 — Auth flow + session-gated routing** ← YOU ARE HERE
 - [ ] Phase 10 — Store refactor to Supabase-backed
 - [ ] Phase 11 — Foods table CRUD + library UI
 - [ ] Phase 12 — Food-first logging flow with stepper
