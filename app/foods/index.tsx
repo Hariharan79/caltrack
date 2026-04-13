@@ -17,6 +17,17 @@ export default function FoodsListScreen() {
 
   useLayoutEffect(() => {
     navigation.setOptions({
+      headerLeft: () => (
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Close food library"
+          hitSlop={12}
+          testID="food-close"
+        >
+          <Text style={styles.headerAction}>Close</Text>
+        </Pressable>
+      ),
       headerRight: () => (
         <Pressable
           onPress={() => router.push('/foods/new')}
