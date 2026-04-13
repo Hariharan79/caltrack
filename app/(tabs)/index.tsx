@@ -1,10 +1,72 @@
-import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, TYPOGRAPHY } from '@/constants/theme';
+import { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Plus } from 'phosphor-react-native';
+import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import {
+  useAppStore,
+  selectTodayEntries,
+  selectTodayTotals,
+} from '@/lib/store';
+import { TotalsCard } from '@/components/TotalsCard';
+import { EntriesList } from '@/components/EntriesList';
+import { AddMealSheet } from '@/components/AddMealSheet';
+
+const TAB_BAR_PADDING = 96;
+
+function todayHeaderLabel(now: Date = new Date()): string {
+  return now.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+}
 
 export default function TodayScreen() {
+  const insets = useSafeAreaInsets();
+  const [sheetVisible, setSheetVisible] = useState(false);
+
+  const goals = useAppStore((s) => s.goals);
+  const totals = useAppStore(selectTodayTotals);
+  const entries = useAppStore(selectTodayEntries);
+  const addEntry = useAppStore((s) => s.addEntry);
+  const removeEntry = useAppStore((s) => s.removeEntry);
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.heading}>Today</Text>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: TAB_BAR_PADDING + insets.bottom },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.greeting}>Today</Text>
+          <Text style={styles.date}>{todayHeaderLabel()}</Text>
+        </View>
+
+        <TotalsCard totals={totals} goals={goals} />
+
+        <Text style={styles.sectionTitle}>Meals</Text>
+        <EntriesList entries={entries} onDelete={removeEntry} emptyText="Tap + to log your first meal" />
+      </ScrollView>
+
+      <Pressable
+        onPress={() => setSheetVisible(true)}
+        style={[styles.fab, { bottom: TAB_BAR_PADDING + insets.bottom - 32 }]}
+        accessibilityRole="button"
+        accessibilityLabel="Log a meal"
+        testID="log-meal-fab"
+      >
+        <Plus color={COLORS.text} size={28} weight="bold" />
+      </Pressable>
+
+      <AddMealSheet
+        visible={sheetVisible}
+        onClose={() => setSheetVisible(false)}
+        onSubmit={(input) => addEntry(input)}
+      />
     </View>
   );
 }
@@ -13,12 +75,48 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  scroll: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+  },
+  header: {
+    marginBottom: SPACING.lg,
+  },
+  greeting: {
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.size.display,
+    fontWeight: TYPOGRAPHY.weight.bold,
+  },
+  date: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.size.md,
+    marginTop: 2,
+  },
+  sectionTitle: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: TYPOGRAPHY.weight.medium,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+  fab: {
+    position: 'absolute',
+    right: SPACING.xl,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  heading: {
-    color: COLORS.text,
-    fontSize: TYPOGRAPHY.size.lg,
-    fontWeight: TYPOGRAPHY.weight.semibold,
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.border,
   },
 });

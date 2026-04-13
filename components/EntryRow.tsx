@@ -1,0 +1,99 @@
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import type { MealEntry } from '@/types';
+import { formatTime } from '@/lib/date';
+
+interface EntryRowProps {
+  entry: MealEntry;
+  onDelete?: (id: string) => void;
+  showTime?: boolean;
+}
+
+export function EntryRow({ entry, onDelete, showTime = true }: EntryRowProps) {
+  const macros: string[] = [];
+  if (entry.proteinG != null) macros.push(`${Math.round(entry.proteinG)}P`);
+  if (entry.carbsG != null) macros.push(`${Math.round(entry.carbsG)}C`);
+  if (entry.fatG != null) macros.push(`${Math.round(entry.fatG)}F`);
+  const macroLine = macros.join(' · ');
+
+  return (
+    <View style={styles.row} testID={`entry-row-${entry.id}`}>
+      <View style={styles.left}>
+        <Text style={styles.name} numberOfLines={1}>
+          {entry.name}
+        </Text>
+        <Text style={styles.meta}>
+          {showTime ? `${formatTime(entry.loggedAt)}` : ''}
+          {showTime && macroLine ? ' · ' : ''}
+          {macroLine}
+        </Text>
+      </View>
+      <View style={styles.right}>
+        <Text style={styles.calories}>{entry.calories}</Text>
+        <Text style={styles.caloriesUnit}>kcal</Text>
+      </View>
+      {onDelete ? (
+        <Pressable
+          onPress={() => onDelete(entry.id)}
+          style={styles.delete}
+          accessibilityRole="button"
+          accessibilityLabel={`Delete ${entry.name}`}
+          testID={`delete-${entry.id}`}
+          hitSlop={8}
+        >
+          <Text style={styles.deleteText}>Delete</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    marginBottom: SPACING.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.border,
+    gap: SPACING.md,
+  },
+  left: {
+    flex: 1,
+    minWidth: 0,
+  },
+  name: {
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.size.md,
+    fontWeight: TYPOGRAPHY.weight.semibold,
+  },
+  meta: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.size.sm,
+    marginTop: 2,
+  },
+  right: {
+    alignItems: 'flex-end',
+  },
+  calories: {
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.size.lg,
+    fontWeight: TYPOGRAPHY.weight.semibold,
+  },
+  caloriesUnit: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.size.xs,
+  },
+  delete: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+  },
+  deleteText: {
+    color: COLORS.protein,
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: TYPOGRAPHY.weight.medium,
+  },
+});
