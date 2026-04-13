@@ -4,33 +4,32 @@
 
 ---
 
-## 🟡 Next action — runtime-verify Phase 10, then Phase 11
+## 🟢 Next action — Phase 11: Foods table CRUD + library UI
 
-Phase 10 code shipped in this session on 2026-04-13. Static checks all green (tsc clean, 110/110 jest, expo lint 0/0). **Runtime verification (N-11) still pending** — user ping required before marking complete.
+Phase 10 shipped as `c3c419d` and was runtime-verified on 2026-04-13 in iOS sim. User walked through: log a meal → kill/reopen → persists; delete → persists; change calorie goal → persists; SQL-inserted row on the server appears on reload. Store is now Supabase-backed, all actions async, hydration + sign-out-reset wired into `app/_layout.tsx`, v1→v2 AsyncStorage migration helper in place.
 
-What changed in Phase 10:
-- `lib/store.ts` — removed zustand-persist middleware; all actions now round-trip through Supabase before updating local state. New state fields: `hydrated`, `hydrating`, `error`. New actions: `hydrate(userId)` and `reset()`. `addEntry`/`removeEntry`/`updateGoals` are now async and throw on error (no local state change until Supabase write succeeds).
-- `updateGoals` inserts a new log-style row in the `goals` table (preserves history — D-14 alignment with schema).
-- `hydrate()` loads current goals (`order set_at desc limit 1`) + all `log_entries` for the user. Runs on session-resolve from `app/_layout.tsx`. Sign-out triggers `reset()`.
-- `lib/migrateLocal.ts` — one-shot v1→v2 AsyncStorage uploader. Reads the legacy `caltrack-store` JSON blob, normalizes entries, bulk-inserts into `log_entries`, then sets `caltrack-v2-migrated=true`. Safe on empty/malformed/already-done. Surfaces errors but does NOT mark done so it'll retry next boot.
-- `app/(tabs)/index.tsx` + `profile.tsx` — async handlers, `Alert.alert` on failure, `loading` prop on the Save goals button.
-- `jest.setup.js` — stubs `EXPO_PUBLIC_SUPABASE_*` env vars so test suites that transitively import `lib/supabase.ts` don't blow up at import time.
+One gotcha surfaced during runtime verification:
+- **Expo Go + Metro restart** breaks the AsyncStorage native bridge (`NativeModule: AsyncStorage is null` on import). Symptom: on fresh `expo start`, sign-in screen errors immediately. Fix: `xcrun simctl terminate <sim-uuid> host.exp.Exponent` then `xcrun simctl openurl <sim-uuid> exp://127.0.0.1:8081`. Sim UUID for this project's iPhone 17 Pro is `9C4876FA-93CE-4EC1-B705-8F06C5A2E72E` (may change on sim reset). Just killing + reopening Expo Go on the sim also works. Don't debug in code — it's a Metro/Expo Go bridge refresh issue, not a real bug.
 
-**Runtime script for the sim (user walks through these):**
-1. App already signed in from Phase 9. Open Today — should be empty (fresh Supabase data for this account). If there's stale local data from earlier v1 runs, it should be uploaded by the migration helper on first boot.
-2. Tap + → log a meal → save. Entry should appear in Today.
-3. Kill + reopen app (or sign out / sign in). Entry should still appear (it's in Supabase now, not AsyncStorage).
-4. Go to Profile → change calorie goal → Save → should show "Goals saved". Reopen app → goal persists.
-5. Delete an entry from Today (swipe or tap). Reopen → still gone.
-6. On the Supabase dashboard, manually insert a `log_entries` row for your user_id → reload the app → should appear in Today. (This proves hydrate pulls fresh data.)
-7. Sign out → data should disappear from the tabs (reset called). Sign back in → data reappears.
+What Phase 10 added (context for Phase 11):
+- `lib/store.ts` — all store actions round-trip through Supabase first; new `hydrate(userId)` + `reset()` + `hydrated`/`hydrating`/`error` fields. `updateGoals` inserts a log-style row (D-14 schema — goals are history, current goal is `ORDER BY set_at DESC LIMIT 1`).
+- `lib/migrateLocal.ts` — one-shot v1→v2 AsyncStorage uploader, idempotent.
+- `app/_layout.tsx` — on session-resolve runs migration then hydrate; on sign-out calls reset. All happens inside `SessionGate`.
+- `jest.setup.js` — stubs `EXPO_PUBLIC_SUPABASE_*` so test suites that transitively import `lib/supabase.ts` don't blow up. Any new test that imports through `lib/*` inherits this automatically.
+- `app/(tabs)/index.tsx` + `profile.tsx` — async handlers with `Alert.alert` on failure, `loading` prop on Save goals button.
 
-If any step fails, likely culprits:
-- **RLS silence**: queries without an active session return zero rows, not an error. `useAppStore.getState().error` should surface anything the supabase client did return.
-- **Hydration race**: the `_layout.tsx` effect runs migration → hydrate sequentially; if hydrate fires before the session token is on the client, it'll look like empty data. Check `hydrated` flag.
-- **Missing migration commit**: if a legacy v1 entry appears after sign-in, the migration worked; if not and there was local v1 data, `caltrack-v2-migrated` may have been set prematurely.
+Phase 11 plan (from ROADMAP.md):
+- Modal route `app/foods/` with list + create + edit screens. Use `expo-router` group navigation — similar pattern to `(auth)/`.
+- Components: `components/FoodRow.tsx`, `components/FoodForm.tsx`.
+- Store additions: `foods` slice with `addFood`/`updateFood`/`deleteFood`/`searchFoods(query)`. Re-use the async-Supabase pattern from Phase 10 (throw-on-error, update local after server confirms). Add `foods: Food[]` to `AppState` and load in `hydrate()`.
+- New type: `Food` in `types/index.ts` mapping to the `foods` table row (user-scoped, RLS on). Convert snake_case columns to camelCase the same way `rowToEntry` does in Phase 10.
+- UI surface: new section on Today or Profile that links to the library? Check ROADMAP — Phase 12 is when it's wired into logging; Phase 11 is just the library screen itself. For Phase 11, add an entry point on the Profile tab or a new tab — revisit.
+- **Runtime verification (N-11):** create 3 foods, edit one, delete one, confirm they round-trip to Supabase via MCP `execute_sql`.
 
-Once verified, move to Phase 11 (Foods table CRUD + library UI). The store now has a clean pattern for Supabase-backed async actions — reuse it for `addFood`/`updateFood`/`deleteFood`.
+Known gotchas carrying forward:
+- **RLS silence**: queries without an active session return zero rows, not an error. Check `useAppStore.getState().error`.
+- **day_key vs logged_at**: schema uses `day_key` (YYYY-MM-DD local) for bucketing. `lib/date.ts` already produces this.
+- **Metro restart bridge bug**: see above. Always terminate + reopen Expo Go when switching Metro sessions.
 
 ---
 
@@ -69,8 +68,8 @@ Once verified, move to Phase 11 (Foods table CRUD + library UI). The store now h
 - [x] Phase 7 — Supabase schema + RLS (`7032acc`, migrations `20260413000000` + `20260413000100`)
 - [x] Phase 8 — Supabase client + env plumbing (`23b6734`)
 - [x] Phase 9 — Auth flow + session-gated routing (`49a32c6`, runtime-verified 2026-04-13)
-- [~] **Phase 10 — Store refactor to Supabase-backed** (code shipped 2026-04-13, runtime verification pending) ← YOU ARE HERE
-- [ ] Phase 11 — Foods table CRUD + library UI
+- [x] Phase 10 — Store refactor to Supabase-backed (`c3c419d`, runtime-verified 2026-04-13)
+- [ ] **Phase 11 — Foods table CRUD + library UI** ← YOU ARE HERE
 - [ ] Phase 11.5 — Nutritionix Track API client (D-24)
 - [ ] Phase 12 — Food-first logging flow with stepper (wires Nutritionix)
 - [ ] Phase 13 — Bullshit detector (F-20)
