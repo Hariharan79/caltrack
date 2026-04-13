@@ -152,3 +152,24 @@ Phase 19 is a dedicated copy pass across the whole app.
 - Open Food Facts **stays** for Phase 17 barcodes (it's better at that, and free without keys).
 
 Trade-off: adds a second external dependency. Mitigated by caching into `foods` table on first use — after a week of tracking, most logs go through the library without hitting the API.
+
+## D-25 — FatSecret Platform API replaces Nutritionix (**supersedes D-24**)
+
+2026-04-13: Nutritionix quietly removed their free tier — existing docs still mention "200 calls/day" but signup flows route everyone to paid plans. User applied for a **FatSecret Platform API** key instead (free Basic tier, OAuth 2.0 client-credentials flow, includes Search + Autocomplete + Food + NLP endpoints).
+
+Impact on Phase 11.5:
+- Rename `lib/nutritionix.ts` → `lib/fatsecret.ts`. Different shape:
+  - Auth: OAuth 2.0 client-credentials. `POST https://oauth.fatsecret.com/connect/token` with `grant_type=client_credentials&scope=basic premier` → access token (expires in ~24h). Cache in memory + refresh on 401.
+  - Endpoints are under `https://platform.fatsecret.com/rest/server.api` with `format=json`:
+    - `method=foods.search` — text search → `{foods: {food: FatSecretFood[]}}`
+    - `method=foods.autocomplete` — typeahead (Premier tier; check plan)
+    - `method=food.get.v2&food_id=…` — full food details
+    - `method=natural-language-processing.v1` — NLP (Premier; may not be in Basic)
+  - Env vars: `EXPO_PUBLIC_FATSECRET_CLIENT_ID`, `EXPO_PUBLIC_FATSECRET_CLIENT_SECRET`. User must supply before Phase 11.5.
+  - Response shape very different from Nutritionix — kcal is under `food_description` as a free-text string that needs parsing ("Per 100g - Calories: 165kcal | Fat: 3.57g | Carbs: 0g | Protein: 31g"). Mapping layer does the parse.
+
+Phase 12 still consumes the client, but the Phase 12 plan needs a revisit once we know which endpoints are available on the Basic tier. If `natural-language-processing.v1` requires Premier, fall back to search-only UX (no "2 eggs and toast" parse).
+
+Trade-off vs Nutritionix: FatSecret's OAuth + free-text nutrition field are more work. But Basic tier is genuinely free indefinitely, which is the whole point of this switch.
+
+**Phase 11.5 is blocked** until the FatSecret key arrives. Moving forward with other phases in the meantime.
