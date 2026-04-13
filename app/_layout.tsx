@@ -60,7 +60,13 @@ function SessionGate() {
     return <View style={{ flex: 1, backgroundColor: COLORS.background }} />;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="foods" options={{ presentation: 'modal' }} />
+    </Stack>
+  );
 }
 
 export default function RootLayout() {

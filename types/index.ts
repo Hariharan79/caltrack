@@ -28,3 +28,28 @@ export interface DailyTotals {
 }
 
 export type TabName = 'index' | 'history' | 'profile';
+
+export interface Food {
+  id: string;
+  name: string;
+  servingSize: string | null;
+  kcalPerServing: number;
+  proteinGPerServing: number | null;
+  carbsGPerServing: number | null;
+  fatGPerServing: number | null;
+  barcode: string | null;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewFoodInput {
+  name: string;
+  servingSize: string | null;
+  kcalPerServing: number;
+  proteinGPerServing: number | null;
+  carbsGPerServing: number | null;
+  fatGPerServing: number | null;
+}
+
+export type FoodUpdateInput = Partial<NewFoodInput>;

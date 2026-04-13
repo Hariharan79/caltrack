@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAppStore } from '@/lib/store';
 import { TextField } from '@/components/TextField';
@@ -16,8 +17,10 @@ const TAB_BAR_PADDING = 96;
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const goals = useAppStore((s) => s.goals);
   const updateGoals = useAppStore((s) => s.updateGoals);
+  const foodsCount = useAppStore((s) => s.foods.length);
 
   const [draft, setDraft] = useState<GoalsDraft>(() => goalsToDraft(goals));
   const [submitted, setSubmitted] = useState(false);
@@ -85,6 +88,14 @@ export default function ProfileScreen() {
           <Text style={styles.heading}>Profile</Text>
           <Text style={styles.sub}>Daily nutrition goals</Text>
         </View>
+
+        <PrimaryButton
+          label={foodsCount > 0 ? `Food library (${foodsCount})` : 'Food library'}
+          variant="secondary"
+          onPress={() => router.push('/foods')}
+          testID="open-foods"
+          style={styles.libraryButton}
+        />
 
         <TextField
           label="Calorie goal"
@@ -183,6 +194,9 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     marginTop: SPACING.sm,
+  },
+  libraryButton: {
+    marginBottom: SPACING.lg,
   },
   dangerZone: {
     marginTop: SPACING.xxxl,

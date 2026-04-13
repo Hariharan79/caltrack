@@ -1,15 +1,25 @@
 import { create } from 'zustand';
-import type { MealEntry, NewMealInput, Goals, DailyTotals } from '@/types';
-import type { Database } from '../types/db';
+import type {
+  MealEntry,
+  NewMealInput,
+  Goals,
+  DailyTotals,
+  Food,
+  NewFoodInput,
+  FoodUpdateInput,
+} from '@/types';
+import type { Database, TablesUpdate } from '../types/db';
 import { dayKey, todayKey } from './date';
 import { supabase } from './supabase';
 
 type LogEntryRow = Database['public']['Tables']['log_entries']['Row'];
 type GoalsRow = Database['public']['Tables']['goals']['Row'];
+type FoodRow = Database['public']['Tables']['foods']['Row'];
 
 export interface AppState {
   entries: MealEntry[];
   goals: Goals;
+  foods: Food[];
   hydrated: boolean;
   hydrating: boolean;
   error: string | null;
@@ -18,6 +28,9 @@ export interface AppState {
   addEntry: (input: NewMealInput) => Promise<MealEntry>;
   removeEntry: (id: string) => Promise<void>;
   updateGoals: (patch: Partial<Goals>) => Promise<void>;
+  addFood: (input: NewFoodInput) => Promise<Food>;
+  updateFood: (id: string, patch: FoodUpdateInput) => Promise<Food>;
+  deleteFood: (id: string) => Promise<void>;
   clearAll: () => void;
 }
 
@@ -31,6 +44,7 @@ export const DEFAULT_GOALS: Goals = {
 const INITIAL_STATE = {
   entries: [] as MealEntry[],
   goals: DEFAULT_GOALS,
+  foods: [] as Food[],
   hydrated: false,
   hydrating: false,
   error: null as string | null,
@@ -58,6 +72,29 @@ function rowToGoals(row: GoalsRow): Goals {
   };
 }
 
+function rowToFood(row: FoodRow): Food {
+  return {
+    id: row.id,
+    name: row.name,
+    servingSize: row.serving_size,
+    kcalPerServing: Number(row.kcal_per_serving),
+    proteinGPerServing:
+      row.protein_g_per_serving === null ? null : Number(row.protein_g_per_serving),
+    carbsGPerServing:
+      row.carbs_g_per_serving === null ? null : Number(row.carbs_g_per_serving),
+    fatGPerServing:
+      row.fat_g_per_serving === null ? null : Number(row.fat_g_per_serving),
+    barcode: row.barcode,
+    source: row.source,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function sortFoodsByName(foods: readonly Food[]): Food[] {
+  return [...foods].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 async function requireUserId(): Promise<string> {
   const { data, error } = await supabase.auth.getSession();
   if (error) throw new Error(error.message);
@@ -72,7 +109,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   hydrate: async (userId: string) => {
     set({ hydrating: true, error: null });
     try {
-      const [goalsRes, entriesRes] = await Promise.all([
+      const [goalsRes, entriesRes, foodsRes] = await Promise.all([
         supabase
           .from('goals')
           .select('*')
@@ -85,14 +122,21 @@ export const useAppStore = create<AppState>()((set, get) => ({
           .select('*')
           .eq('user_id', userId)
           .order('logged_at', { ascending: false }),
+        supabase
+          .from('foods')
+          .select('*')
+          .eq('user_id', userId)
+          .order('name', { ascending: true }),
       ]);
 
       if (goalsRes.error) throw new Error(goalsRes.error.message);
       if (entriesRes.error) throw new Error(entriesRes.error.message);
+      if (foodsRes.error) throw new Error(foodsRes.error.message);
 
       set({
         goals: goalsRes.data ? rowToGoals(goalsRes.data) : DEFAULT_GOALS,
         entries: (entriesRes.data ?? []).map(rowToEntry),
+        foods: (foodsRes.data ?? []).map(rowToFood),
         hydrated: true,
         hydrating: false,
         error: null,
@@ -159,6 +203,64 @@ export const useAppStore = create<AppState>()((set, get) => ({
     set({ goals: rowToGoals(data) });
   },
 
+  addFood: async (input) => {
+    const userId = await requireUserId();
+    const { data, error } = await supabase
+      .from('foods')
+      .insert({
+        user_id: userId,
+        name: input.name.trim(),
+        serving_size: input.servingSize,
+        kcal_per_serving: input.kcalPerServing,
+        protein_g_per_serving: input.proteinGPerServing,
+        carbs_g_per_serving: input.carbsGPerServing,
+        fat_g_per_serving: input.fatGPerServing,
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error('Insert returned no row');
+
+    const food = rowToFood(data);
+    set((state) => ({ foods: sortFoodsByName([...state.foods, food]) }));
+    return food;
+  },
+
+  updateFood: async (id, patch) => {
+    const dbPatch: TablesUpdate<'foods'> = {};
+    if (patch.name !== undefined) dbPatch.name = patch.name.trim();
+    if (patch.servingSize !== undefined) dbPatch.serving_size = patch.servingSize;
+    if (patch.kcalPerServing !== undefined) dbPatch.kcal_per_serving = patch.kcalPerServing;
+    if (patch.proteinGPerServing !== undefined)
+      dbPatch.protein_g_per_serving = patch.proteinGPerServing;
+    if (patch.carbsGPerServing !== undefined)
+      dbPatch.carbs_g_per_serving = patch.carbsGPerServing;
+    if (patch.fatGPerServing !== undefined) dbPatch.fat_g_per_serving = patch.fatGPerServing;
+
+    const { data, error } = await supabase
+      .from('foods')
+      .update(dbPatch)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error('Update returned no row');
+
+    const food = rowToFood(data);
+    set((state) => ({
+      foods: sortFoodsByName(state.foods.map((f) => (f.id === id ? food : f))),
+    }));
+    return food;
+  },
+
+  deleteFood: async (id) => {
+    const { error } = await supabase.from('foods').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+    set((state) => ({ foods: state.foods.filter((f) => f.id !== id) }));
+  },
+
   clearAll: () => set({ ...INITIAL_STATE }),
 }));
 
@@ -201,6 +303,12 @@ export function selectTodayTotals(entries: readonly MealEntry[]): DailyTotals {
 export interface HistoryDay {
   totals: DailyTotals;
   entries: MealEntry[];
+}
+
+export function searchFoods(foods: readonly Food[], query: string): Food[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [...foods];
+  return foods.filter((f) => f.name.toLowerCase().includes(q));
 }
 
 export function selectHistory(entries: readonly MealEntry[]): HistoryDay[] {

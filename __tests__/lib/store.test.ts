@@ -61,9 +61,10 @@ import {
   selectTodayTotals,
   selectHistory,
   computeDailyTotals,
+  searchFoods,
   DEFAULT_GOALS,
 } from '@/lib/store';
-import type { MealEntry } from '@/types';
+import type { Food, MealEntry } from '@/types';
 import { todayKey } from '@/lib/date';
 
 const mock = supabaseMock as unknown as {
@@ -543,5 +544,287 @@ describe('selectors', () => {
 
   it('selectHistory returns [] when there are no past entries', () => {
     expect(selectHistory(useAppStore.getState().entries)).toEqual([]);
+  });
+});
+
+const SAMPLE_FOOD_ROW = {
+  id: 'food-1',
+  user_id: 'user-1',
+  name: 'Chicken breast',
+  serving_size: '100 g',
+  kcal_per_serving: 165,
+  protein_g_per_serving: 31,
+  carbs_g_per_serving: 0,
+  fat_g_per_serving: 3.6,
+  barcode: null,
+  source: 'user',
+  created_at: '2026-04-13T00:00:00.000Z',
+  updated_at: '2026-04-13T00:00:00.000Z',
+};
+
+describe('useAppStore.addFood', () => {
+  it('inserts via supabase and keeps foods sorted by name', async () => {
+    signedIn('user-1');
+    useAppStore.setState({
+      foods: [
+        {
+          id: 'existing',
+          name: 'Zebra meat',
+          servingSize: null,
+          kcalPerServing: 100,
+          proteinGPerServing: null,
+          carbsGPerServing: null,
+          fatGPerServing: null,
+          barcode: null,
+          source: 'user',
+          createdAt: '2026-04-12T00:00:00.000Z',
+          updatedAt: '2026-04-12T00:00:00.000Z',
+        },
+      ],
+    });
+    enqueue({ data: SAMPLE_FOOD_ROW, error: null });
+
+    const food = await useAppStore.getState().addFood({
+      name: '  Chicken breast  ',
+      servingSize: '100 g',
+      kcalPerServing: 165,
+      proteinGPerServing: 31,
+      carbsGPerServing: 0,
+      fatGPerServing: 3.6,
+    });
+
+    expect(food.id).toBe('food-1');
+    const foods = useAppStore.getState().foods;
+    expect(foods).toHaveLength(2);
+    expect(foods[0].name).toBe('Chicken breast');
+    expect(foods[1].name).toBe('Zebra meat');
+
+    const insertCall = mock.__state.calls.find((c) => c.method === 'insert');
+    expect(insertCall).toBeDefined();
+    const payload = insertCall!.args[0] as Record<string, unknown>;
+    expect(payload.user_id).toBe('user-1');
+    expect(payload.name).toBe('Chicken breast');
+    expect(payload.kcal_per_serving).toBe(165);
+  });
+
+  it('throws when not authenticated', async () => {
+    await expect(
+      useAppStore.getState().addFood({
+        name: 'X',
+        servingSize: null,
+        kcalPerServing: 100,
+        proteinGPerServing: null,
+        carbsGPerServing: null,
+        fatGPerServing: null,
+      })
+    ).rejects.toThrow(/authenticated/i);
+    expect(useAppStore.getState().foods).toHaveLength(0);
+  });
+
+  it('throws supabase error and leaves foods untouched', async () => {
+    signedIn();
+    enqueue({ data: null, error: { message: 'rls denied' } });
+    await expect(
+      useAppStore.getState().addFood({
+        name: 'X',
+        servingSize: null,
+        kcalPerServing: 100,
+        proteinGPerServing: null,
+        carbsGPerServing: null,
+        fatGPerServing: null,
+      })
+    ).rejects.toThrow('rls denied');
+    expect(useAppStore.getState().foods).toHaveLength(0);
+  });
+});
+
+describe('useAppStore.updateFood', () => {
+  it('updates the row and swaps it in local state', async () => {
+    useAppStore.setState({
+      foods: [
+        {
+          id: 'food-1',
+          name: 'Chicken breast',
+          servingSize: '100 g',
+          kcalPerServing: 165,
+          proteinGPerServing: 31,
+          carbsGPerServing: 0,
+          fatGPerServing: 3.6,
+          barcode: null,
+          source: 'user',
+          createdAt: '2026-04-13T00:00:00.000Z',
+          updatedAt: '2026-04-13T00:00:00.000Z',
+        },
+      ],
+    });
+    enqueue({
+      data: { ...SAMPLE_FOOD_ROW, name: 'Chicken thigh', kcal_per_serving: 209 },
+      error: null,
+    });
+
+    const updated = await useAppStore.getState().updateFood('food-1', {
+      name: 'Chicken thigh',
+      kcalPerServing: 209,
+    });
+
+    expect(updated.name).toBe('Chicken thigh');
+    expect(useAppStore.getState().foods[0].name).toBe('Chicken thigh');
+
+    const updateCall = mock.__state.calls.find((c) => c.method === 'update');
+    expect(updateCall).toBeDefined();
+    const payload = updateCall!.args[0] as Record<string, unknown>;
+    expect(payload.name).toBe('Chicken thigh');
+    expect(payload.kcal_per_serving).toBe(209);
+    expect(payload.carbs_g_per_serving).toBeUndefined();
+  });
+
+  it('throws and leaves local state untouched on error', async () => {
+    useAppStore.setState({
+      foods: [
+        {
+          id: 'food-1',
+          name: 'Old name',
+          servingSize: null,
+          kcalPerServing: 100,
+          proteinGPerServing: null,
+          carbsGPerServing: null,
+          fatGPerServing: null,
+          barcode: null,
+          source: 'user',
+          createdAt: '2026-04-13T00:00:00.000Z',
+          updatedAt: '2026-04-13T00:00:00.000Z',
+        },
+      ],
+    });
+    enqueue({ data: null, error: { message: 'not found' } });
+    await expect(
+      useAppStore.getState().updateFood('food-1', { name: 'New' })
+    ).rejects.toThrow('not found');
+    expect(useAppStore.getState().foods[0].name).toBe('Old name');
+  });
+});
+
+describe('useAppStore.deleteFood', () => {
+  it('removes the food from local state after supabase delete', async () => {
+    useAppStore.setState({
+      foods: [
+        {
+          id: 'food-1',
+          name: 'A',
+          servingSize: null,
+          kcalPerServing: 100,
+          proteinGPerServing: null,
+          carbsGPerServing: null,
+          fatGPerServing: null,
+          barcode: null,
+          source: 'user',
+          createdAt: '2026-04-13T00:00:00.000Z',
+          updatedAt: '2026-04-13T00:00:00.000Z',
+        },
+      ],
+    });
+    enqueue({ data: null, error: null });
+    await useAppStore.getState().deleteFood('food-1');
+    expect(useAppStore.getState().foods).toHaveLength(0);
+  });
+
+  it('leaves local state untouched on supabase error', async () => {
+    useAppStore.setState({
+      foods: [
+        {
+          id: 'food-1',
+          name: 'A',
+          servingSize: null,
+          kcalPerServing: 100,
+          proteinGPerServing: null,
+          carbsGPerServing: null,
+          fatGPerServing: null,
+          barcode: null,
+          source: 'user',
+          createdAt: '2026-04-13T00:00:00.000Z',
+          updatedAt: '2026-04-13T00:00:00.000Z',
+        },
+      ],
+    });
+    enqueue({ data: null, error: { message: 'fk violation' } });
+    await expect(useAppStore.getState().deleteFood('food-1')).rejects.toThrow(
+      'fk violation'
+    );
+    expect(useAppStore.getState().foods).toHaveLength(1);
+  });
+});
+
+describe('useAppStore.hydrate with foods', () => {
+  it('loads foods alongside goals and entries', async () => {
+    enqueue({ data: null, error: null });
+    enqueue({ data: [], error: null });
+    enqueue({
+      data: [SAMPLE_FOOD_ROW, { ...SAMPLE_FOOD_ROW, id: 'food-2', name: 'Broccoli' }],
+      error: null,
+    });
+
+    await useAppStore.getState().hydrate('user-1');
+    const foods = useAppStore.getState().foods;
+    expect(foods).toHaveLength(2);
+    expect(foods[0].name).toBe('Chicken breast');
+    expect(foods[1].name).toBe('Broccoli');
+  });
+});
+
+describe('searchFoods', () => {
+  const foods: Food[] = [
+    {
+      id: '1',
+      name: 'Chicken breast',
+      servingSize: null,
+      kcalPerServing: 165,
+      proteinGPerServing: null,
+      carbsGPerServing: null,
+      fatGPerServing: null,
+      barcode: null,
+      source: 'user',
+      createdAt: '',
+      updatedAt: '',
+    },
+    {
+      id: '2',
+      name: 'Broccoli',
+      servingSize: null,
+      kcalPerServing: 30,
+      proteinGPerServing: null,
+      carbsGPerServing: null,
+      fatGPerServing: null,
+      barcode: null,
+      source: 'user',
+      createdAt: '',
+      updatedAt: '',
+    },
+    {
+      id: '3',
+      name: 'Brown rice',
+      servingSize: null,
+      kcalPerServing: 215,
+      proteinGPerServing: null,
+      carbsGPerServing: null,
+      fatGPerServing: null,
+      barcode: null,
+      source: 'user',
+      createdAt: '',
+      updatedAt: '',
+    },
+  ];
+
+  it('returns all foods for an empty query', () => {
+    expect(searchFoods(foods, '')).toHaveLength(3);
+    expect(searchFoods(foods, '   ')).toHaveLength(3);
+  });
+
+  it('case-insensitive substring match', () => {
+    expect(searchFoods(foods, 'BRO').map((f) => f.name)).toEqual(['Broccoli', 'Brown rice']);
+    expect(searchFoods(foods, 'rice').map((f) => f.name)).toEqual(['Brown rice']);
+  });
+
+  it('returns [] when nothing matches', () => {
+    expect(searchFoods(foods, 'xyz')).toEqual([]);
   });
 });
