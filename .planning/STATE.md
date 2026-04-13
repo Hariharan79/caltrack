@@ -17,9 +17,9 @@
 - [x] Phase 6 — Verification + MORNING_SUMMARY.md (`caf6e96`)
 - [x] Runtime bugfix — store selectors (`790c691`)
 
-## v2 phase progress (planned)
+## v2 phase progress
 
-- [ ] Phase 7 — Supabase schema + RLS
+- [x] Phase 7 — Supabase schema + RLS (migration `20260413000000` + optimizations `20260413000100`)
 - [ ] Phase 8 — Supabase client + env plumbing
 - [ ] Phase 9 — Auth flow + session-gated routing
 - [ ] Phase 10 — Store refactor to Supabase-backed
@@ -43,8 +43,10 @@
 | `npx expo lint` | ✅ 0 errors, 0 warnings |
 | `lib/` coverage | ✅ 100% statements / 94% branches |
 | Supabase MCP | ✅ connected, 20 tools available |
-| Supabase schema | ⚠️ empty (public schema, no tables yet) |
+| Supabase schema | ✅ 5 tables + 1 view + RLS on all, 0 rows |
+| Supabase security advisors | ✅ 0 warnings |
+| Supabase performance advisors | ✅ 0 fixable warnings (7 unused-index INFOs are expected on empty DB) |
 
 ## Blockers
 
-None. Next up: Phase 7 (Supabase schema design). Per D-14, the schema needs to be posted to the user for review before any migration runs.
+None. Next up: **Phase 8** (Supabase client + env plumbing). Needs the Supabase anon key from the dashboard.
