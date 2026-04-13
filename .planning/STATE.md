@@ -4,20 +4,29 @@
 
 ---
 
-## 🟢 Next action — Phase 9: Auth flow + session-gated routing
+## 🟢 Next action — Phase 10: Store refactor to Supabase-backed
 
-Phase 8 shipped as `23b6734`. Supabase client is wired (`lib/supabase.ts`), env vars load, Metro bundles clean. Types generated at `types/db.ts`.
+Phase 9 shipped as `49a32c6`. User verified the full auth flow in iOS sim on 2026-04-13: sign-up (with real email, Supabase had Confirm email on — user liked keeping it), redirect to tabs, sign out, sign in, kill/reopen app — session persists.
 
-Phase 9 outline (refer to ROADMAP.md for full scope):
-1. **Sign-in / sign-up screens** — email+password via `supabase.auth.signInWithPassword` / `signUp`. Dry error messages, no flash.
-2. **Session state hook** — subscribe to `supabase.auth.onAuthStateChange`, expose `useSession()`.
-3. **Session-gated routing** — expo-router group for `(auth)` vs `(tabs)`. Redirect unauthenticated users to sign-in, authenticated users away from auth group.
-4. **Sign-out action** — wire from profile tab.
-5. **Verification (N-11):** `tsc`, `jest`, and a real simulator boot — sign up a throwaway user, confirm profile row is auto-created (trigger from Phase 7), sign out, sign back in, kill/reload app, session persists.
+Important context carried forward from Phase 9:
+- Supabase project has **email confirmation ON**. User explicitly liked this. Don't disable it.
+- User is running the app in **Expo Go** on iPhone 17 Pro sim (not a dev client). Cmd-R doesn't work for reloads; test by killing and reopening the app.
+- `supabase.auth.signUp` already works; `profiles` row is auto-created by the Phase 7 trigger.
+- Sign-out button lives in Profile tab, replacing the old "Reset all data" button. `clearAll` store action is still defined in `lib/store.ts` but has no UI caller — it'll become the per-user Supabase wipe later.
+
+Phase 10 outline (refer to ROADMAP.md for full scope):
+1. **Replace zustand-persist AsyncStorage adapter** with Supabase-queried state. AsyncStorage becomes an offline read cache only.
+2. **`hydrate()` action** — called on auth state change (from `useSession` effect), loads `goals` + today's `log_entries` from Supabase for the current user.
+3. **Async store actions** — `addEntry`, `deleteEntry`, `updateGoals` all become async and await Supabase writes before updating local state. Rollback on failure.
+4. **v1 → v2 migration helper** — on first boot of v2 for a user who already has local AsyncStorage v1 data, upload those entries to Supabase then clear the local store. One-shot.
+5. **Tests** — store actions against a mocked Supabase client (reuse the mock style from `__tests__/hooks/useSession.test.ts`); hydration; migration path happy + empty + conflict.
+6. **Runtime verification (N-11):** log an entry on the sim, refresh the app, entry still there. Then delete it. Then log on Supabase dashboard directly and see it appear after reload. User ping expected.
 
 Known gotchas:
-- `profiles` row is auto-created by the `handle_new_user()` trigger — don't insert manually, just read.
-- RLS is on every table, so every query needs an authenticated session or it returns zero rows silently. Good: exposes auth bugs fast. Bad: easy to misdiagnose as a data issue.
+- **RLS silence**: queries without an active session return zero rows, not an error. If something "doesn't work" in Phase 10, first check the session exists before debugging data logic.
+- **Race on auth change**: don't hydrate before `useSession` resolves — wait for `loading=false` and a non-null `session`.
+- **day_key vs logged_at**: schema uses `day_key` (YYYY-MM-DD local string) for bucketing. The existing `lib/date.ts` already produces this format (D-04). Use it.
+- **Store currently uses zustand-persist middleware**. Removing the middleware changes the shape of the default export — update all imports and `__tests__/lib/store.test.ts` accordingly.
 
 ---
 
@@ -26,7 +35,7 @@ Known gotchas:
 - **Repo:** `/Users/hari7aran/Desktop/caltrack-autopilot-test`
 - **Supabase project:** `gjzonxmvfaokjpgfykrn.supabase.co` (MCP connected)
 - **Branch:** `main` (all work lives here; no feature branches this project)
-- **Last commit:** `23b6734` — `feat(supabase): phase 8 — client + env plumbing + generated types`
+- **Last commit:** `49a32c6` — `feat(auth): phase 9 — sign-in, sign-up, session-gated routing`
 - **User mode:** interactive during the day, occasionally authorizes autonomous overnight work. See `~/.claude/projects/-Users-hari7aran-Desktop-caltrack-autopilot-test/memory/session_mode_overnight.md`.
 - **Read-before-edit hook:** this project has an aggressive PreToolUse hook that flags edits to files not read-in-session. It's noisy but edits still succeed. Just re-read and retry if needed.
 
@@ -55,8 +64,8 @@ Known gotchas:
 
 - [x] Phase 7 — Supabase schema + RLS (`7032acc`, migrations `20260413000000` + `20260413000100`)
 - [x] Phase 8 — Supabase client + env plumbing (`23b6734`)
-- [ ] **Phase 9 — Auth flow + session-gated routing** ← YOU ARE HERE
-- [ ] Phase 10 — Store refactor to Supabase-backed
+- [x] Phase 9 — Auth flow + session-gated routing (`49a32c6`, runtime-verified 2026-04-13)
+- [ ] **Phase 10 — Store refactor to Supabase-backed** ← YOU ARE HERE
 - [ ] Phase 11 — Foods table CRUD + library UI
 - [ ] Phase 11.5 — Nutritionix Track API client (D-24)
 - [ ] Phase 12 — Food-first logging flow with stepper (wires Nutritionix)
@@ -73,8 +82,8 @@ Known gotchas:
 
 | Check | Status |
 |---|---|
-| `npx tsc --noEmit` | ✅ clean (last checked end of v1) |
-| `npx jest` | ✅ 87/87 passing (last checked end of v1) |
+| `npx tsc --noEmit` | ✅ clean (end of Phase 9) |
+| `npx jest` | ✅ 98/98 passing (end of Phase 9) |
 | `npx expo lint` | ✅ 0 errors, 0 warnings |
 | `lib/` coverage | ✅ 100% statements / 94% branches |
 | Supabase MCP | ✅ connected, 20 tools available |
