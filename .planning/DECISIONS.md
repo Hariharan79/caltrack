@@ -137,3 +137,18 @@ Phase 19 is a dedicated copy pass across the whole app.
 ## D-23 — Keep current date labels (Q10, **reaffirms D-04 with spec**)
 
 `formatDayLabel` output stays as-is: `Today` / `Yesterday` / `Mon, Apr 12`. No relative ("2 days ago") formatting. With the calendar grid landing in Phase 18, relative labels would be redundant — the grid is the date UI.
+
+## D-24 — Nutritionix Track API back in scope (**reverses D-03, D-09**)
+
+2026-04-13 follow-up: with v2 sessions available (not the overnight budget), Nutritionix is cheap enough to justify. Free tier gives ~200 calls/day on the Track API — plenty for one user.
+
+- **Phase 11.5** (new, inserted before food-first logging): `lib/nutritionix.ts` thin client + tests.
+- **Phase 12** wires two endpoints into the logging sheet:
+  - `GET /v2/search/instant?query=...` — typeahead for food names (common + branded).
+  - `POST /v2/natural/nutrients` body `{query}` — NLP parse of "2 eggs and toast" into per-food kcal + macros.
+- Env vars: `EXPO_PUBLIC_NUTRITIONIX_APP_ID`, `EXPO_PUBLIC_NUTRITIONIX_API_KEY`. User must sign up at developer.nutritionix.com and supply keys before Phase 11.5.
+- Headers: `x-app-id`, `x-app-key`, `x-remote-user-id: 0`.
+- Cache each NLP result into the user's `foods` table so repeat queries don't burn quota.
+- Open Food Facts **stays** for Phase 17 barcodes (it's better at that, and free without keys).
+
+Trade-off: adds a second external dependency. Mitigated by caching into `foods` table on first use — after a week of tracking, most logs go through the library without hitting the API.

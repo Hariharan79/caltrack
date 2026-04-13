@@ -29,14 +29,14 @@ Six phases. Single-user local build. All merged on `main`.
 Dependency chain:
 
 ```
-7 ─→ 8 ─→ 9 ─→ 10 ─┬─→ 11 ─→ 12 ─→ 13
-                   │           ├─→ 14
-                   │           ├─→ 16
-                   │           └─→ 17
+7 ─→ 8 ─→ 9 ─→ 10 ─┬─→ 11 ─→ 11.5 ─→ 12 ─→ 13
+                   │                   ├─→ 14
+                   │                   ├─→ 16
+                   │                   └─→ 17
                    ├─→ 15
                    └─→ 18
-                               ↓
-                          all ─→ 19 ─→ 20
+                                       ↓
+                                  all ─→ 19 ─→ 20
 ```
 
 ## Phase 7 — Supabase schema + RLS
@@ -110,17 +110,40 @@ Dependency chain:
 - **Runtime verification (N-11):** create 3 foods, edit one, delete one, confirm they round-trip to Supabase
 - Commit: `feat(foods): library with search + create + edit`
 
-## Phase 12 — Food-first logging flow with stepper servings
+## Phase 11.5 — Nutritionix Track API client
 
-**Covers:** F-10 (rewrite), F-18, F-01 (evolution)
+**Covers:** D-24 (reverses D-09)
 **Depends on:** Phase 11
 
+- Sign-up at developer.nutritionix.com → provides `app_id` + `api_key` (free tier, ~200 calls/day on Track API). **User must supply these before work starts.**
+- `.env` / `.env.example`: add `EXPO_PUBLIC_NUTRITIONIX_APP_ID` + `EXPO_PUBLIC_NUTRITIONIX_API_KEY`.
+- `lib/nutritionix.ts` — typed thin client:
+  - `searchInstant(query: string)` → `{common: NutritionixHit[], branded: NutritionixHit[]}` via `GET /v2/search/instant`
+  - `parseNaturalLanguage(query: string)` → `NutritionixFood[]` via `POST /v2/natural/nutrients`
+  - Headers: `x-app-id`, `x-app-key`, `x-remote-user-id: 0`, `Content-Type: application/json`
+  - Maps Nutritionix response shape → our internal `Food` shape (kcal, protein_g, carbs_g, fat_g, serving_size)
+  - Throws typed errors on non-200 (network, quota, 4xx)
+  - Fail fast on missing env vars at module load (same pattern as `lib/supabase.ts`)
+- Tests (mocked `fetch`): happy path for both endpoints, quota-exceeded mapping, malformed response, missing optional macro fields.
+- No UI changes yet — Phase 12 wires this into the logging sheet.
+- Commit: `feat(nutritionix): track api client + tests`
+
+## Phase 12 — Food-first logging flow with stepper servings
+
+**Covers:** F-10 (rewrite), F-18, F-01 (evolution), D-24
+**Depends on:** Phase 11.5
+
 - Rewrite `AddMealSheet` as a tabbed sheet:
-  - **Log** tab (primary, opens by default): search food library, recent foods list, tap food → stepper for servings → save
+  - **Log** tab (primary, opens by default):
+    - Search input wired to `nutritionix.searchInstant` (debounced 300ms) + local `foods` table search, merged
+    - Recent foods list above search results when query is empty
+    - Tap a result → stepper for servings → save
+    - Long-press / "Use exact amount" → `nutritionix.parseNaturalLanguage(query)` → pre-filled FoodForm
+    - On save, upsert into the user's `foods` table so repeat queries don't hit the API
   - **Quick add** tab (secondary): the v1 form (name + raw kcal + macros)
 - New `components/Stepper.tsx` — hybrid stepper with tap-to-type (per D-17)
-- Tests: `__tests__/components/Stepper.test.tsx`, updated AddMealSheet tests
-- **Runtime verification (N-11):** log via food library with 0.5 and 2.5 servings
+- Tests: `__tests__/components/Stepper.test.tsx`, updated AddMealSheet tests (mock Nutritionix client)
+- **Runtime verification (N-11):** log via food library with 0.5 and 2.5 servings; search "chicken breast" and confirm typeahead; NLP "2 eggs and toast"
 - Commit: `feat(log): food-first logging with stepper servings`
 
 ## Phase 13 — Bullshit detector

@@ -58,7 +58,8 @@ Known gotchas:
 - [ ] **Phase 9 — Auth flow + session-gated routing** ← YOU ARE HERE
 - [ ] Phase 10 — Store refactor to Supabase-backed
 - [ ] Phase 11 — Foods table CRUD + library UI
-- [ ] Phase 12 — Food-first logging flow with stepper
+- [ ] Phase 11.5 — Nutritionix Track API client (D-24)
+- [ ] Phase 12 — Food-first logging flow with stepper (wires Nutritionix)
 - [ ] Phase 13 — Bullshit detector (F-20)
 - [ ] Phase 14 — Edit entries in place
 - [ ] Phase 15 — Weight tracking + trend chart
