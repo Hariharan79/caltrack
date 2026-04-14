@@ -103,7 +103,7 @@ Phase 14 (edit entries in place) and Phase 16 (meal planning) are still blocked 
 - [ ] Phase 16 — Meal planning (blocked: depends on 12)
 - [ ] Phase 17 — Barcode scanning (unblocked — depends only on `lib/foodLookup.ts` ✅ + `expo-camera` install)
 - [x] Phase 18 — Calendar grid History (`c7e7575`, runtime-verified 2026-04-13)
-- [x] Phase 19 — Brand voice copy pass (shipped overnight 2026-04-14, **runtime verification deferred** — static checks only)
+- [x] Phase 19 — Brand voice copy pass (`80a508f`, shipped overnight 2026-04-14, **runtime verification deferred** — static checks only)
 - [ ] Phase 20 — v2 verification + MORNING_SUMMARY_v2.md
 
 ## Health
