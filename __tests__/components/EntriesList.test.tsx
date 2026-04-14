@@ -13,6 +13,8 @@ const sample: MealEntry[] = [
     fatG: 14,
     loggedAt: '2026-04-13T08:00:00.000Z',
     dayKey: '2026-04-13',
+    foodId: null,
+    servings: 1,
   },
   {
     id: 'e2',
@@ -23,6 +25,8 @@ const sample: MealEntry[] = [
     fatG: null,
     loggedAt: '2026-04-13T08:05:00.000Z',
     dayKey: '2026-04-13',
+    foodId: null,
+    servings: 1,
   },
 ];
 

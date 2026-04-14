@@ -10,6 +10,7 @@ import type {
   WeightEntry,
   NewWeightInput,
 } from '@/types';
+import type { NormalizedFood } from './foodNormalizers';
 import type { Database, TablesUpdate } from '../types/db';
 import { dayKey, todayKey } from './date';
 import { supabase } from './supabase';
@@ -35,6 +36,7 @@ export interface AppState {
   addFood: (input: NewFoodInput) => Promise<Food>;
   updateFood: (id: string, patch: FoodUpdateInput) => Promise<Food>;
   deleteFood: (id: string) => Promise<void>;
+  upsertFoodFromLookup: (lookup: NormalizedFood) => Promise<Food>;
   addWeight: (input: NewWeightInput) => Promise<WeightEntry>;
   removeWeight: (id: string) => Promise<void>;
   clearAll: () => void;
@@ -67,6 +69,8 @@ function rowToEntry(row: LogEntryRow): MealEntry {
     fatG: row.fat_g === null ? null : Number(row.fat_g),
     loggedAt: row.logged_at,
     dayKey: row.day_key,
+    foodId: row.food_id,
+    servings: Number(row.servings),
   };
 }
 
@@ -93,6 +97,7 @@ function rowToFood(row: FoodRow): Food {
       row.fat_g_per_serving === null ? null : Number(row.fat_g_per_serving),
     barcode: row.barcode,
     source: row.source,
+    sourceId: row.source_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -192,6 +197,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
         fat_g: input.fatG,
         logged_at: now.toISOString(),
         day_key: dayKey(now),
+        food_id: input.foodId ?? null,
+        servings: input.servings ?? 1,
       })
       .select()
       .single();
@@ -243,6 +250,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
         protein_g_per_serving: input.proteinGPerServing,
         carbs_g_per_serving: input.carbsGPerServing,
         fat_g_per_serving: input.fatGPerServing,
+        source: input.source ?? 'manual',
+        source_id: input.sourceId ?? null,
+        barcode: input.barcode ?? null,
       })
       .select()
       .single();
@@ -287,6 +297,25 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const { error } = await supabase.from('foods').delete().eq('id', id);
     if (error) throw new Error(error.message);
     set((state) => ({ foods: state.foods.filter((f) => f.id !== id) }));
+  },
+
+  upsertFoodFromLookup: async (lookup) => {
+    const existing = get().foods.find(
+      (f) => f.source === lookup.source && f.sourceId === lookup.sourceId
+    );
+    if (existing) return existing;
+
+    return get().addFood({
+      name: lookup.brand ? `${lookup.brand} — ${lookup.name}` : lookup.name,
+      servingSize: lookup.servingSize,
+      kcalPerServing: lookup.kcalPerServing,
+      proteinGPerServing: lookup.proteinG,
+      carbsGPerServing: lookup.carbsG,
+      fatGPerServing: lookup.fatG,
+      source: lookup.source,
+      sourceId: lookup.sourceId,
+      barcode: lookup.source === 'off' ? lookup.sourceId : null,
+    });
   },
 
   addWeight: async (input) => {
@@ -370,6 +399,27 @@ export function searchFoods(foods: readonly Food[], query: string): Food[] {
   const q = query.trim().toLowerCase();
   if (!q) return [...foods];
   return foods.filter((f) => f.name.toLowerCase().includes(q));
+}
+
+export function selectRecentFoods(
+  entries: readonly MealEntry[],
+  foods: readonly Food[],
+  limit = 8
+): Food[] {
+  const foodById = new Map(foods.map((f) => [f.id, f]));
+  const seen = new Set<string>();
+  const result: Food[] = [];
+  const sorted = [...entries].sort((a, b) => b.loggedAt.localeCompare(a.loggedAt));
+  for (const entry of sorted) {
+    if (entry.foodId === null) continue;
+    if (seen.has(entry.foodId)) continue;
+    const food = foodById.get(entry.foodId);
+    if (!food) continue;
+    seen.add(entry.foodId);
+    result.push(food);
+    if (result.length >= limit) break;
+  }
+  return result;
 }
 
 export function selectWeightHistory(

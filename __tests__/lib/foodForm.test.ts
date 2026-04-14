@@ -15,6 +15,7 @@ const SAMPLE_FOOD: Food = {
   fatGPerServing: 3.6,
   barcode: null,
   source: 'user',
+  sourceId: null,
   createdAt: '2026-04-13T00:00:00.000Z',
   updatedAt: '2026-04-13T00:00:00.000Z',
 };

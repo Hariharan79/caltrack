@@ -100,6 +100,8 @@ describe('buildTotalsByDay', () => {
         fatG: 10,
         loggedAt: '2026-04-12T08:00:00.000Z',
         dayKey: '2026-04-12',
+        foodId: null,
+        servings: 1,
       },
       {
         id: '2',
@@ -110,6 +112,8 @@ describe('buildTotalsByDay', () => {
         fatG: 20,
         loggedAt: '2026-04-12T13:00:00.000Z',
         dayKey: '2026-04-12',
+        foodId: null,
+        servings: 1,
       },
       {
         id: '3',
@@ -120,6 +124,8 @@ describe('buildTotalsByDay', () => {
         fatG: null,
         loggedAt: '2026-04-13T08:00:00.000Z',
         dayKey: '2026-04-13',
+        foodId: null,
+        servings: 1,
       },
     ];
     const map = buildTotalsByDay(entries);

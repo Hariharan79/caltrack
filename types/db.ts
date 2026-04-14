@@ -26,6 +26,7 @@ export type Database = {
           protein_g_per_serving: number | null
           serving_size: string | null
           source: string
+          source_id: string | null
           updated_at: string
           user_id: string
         }
@@ -40,6 +41,7 @@ export type Database = {
           protein_g_per_serving?: number | null
           serving_size?: string | null
           source?: string
+          source_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -54,6 +56,7 @@ export type Database = {
           protein_g_per_serving?: number | null
           serving_size?: string | null
           source?: string
+          source_id?: string | null
           updated_at?: string
           user_id?: string
         }

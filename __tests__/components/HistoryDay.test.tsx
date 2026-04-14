@@ -31,6 +31,8 @@ const entries: MealEntry[] = [
     fatG: 10,
     loggedAt: '2026-04-12T08:00:00.000Z',
     dayKey: '2026-04-12',
+    foodId: null,
+    servings: 1,
   },
   {
     id: 'e2',
@@ -41,6 +43,8 @@ const entries: MealEntry[] = [
     fatG: 30,
     loggedAt: '2026-04-12T13:00:00.000Z',
     dayKey: '2026-04-12',
+    foodId: null,
+    servings: 1,
   },
 ];
 

@@ -64,9 +64,11 @@ import {
   searchFoods,
   selectWeightHistory,
   selectLatestWeight,
+  selectRecentFoods,
   DEFAULT_GOALS,
 } from '@/lib/store';
 import type { Food, MealEntry, WeightEntry } from '@/types';
+import type { NormalizedFood } from '@/lib/foodNormalizers';
 import { todayKey } from '@/lib/date';
 
 const mock = supabaseMock as unknown as {
@@ -190,6 +192,8 @@ describe('useAppStore.removeEntry', () => {
           fatG: null,
           loggedAt: '2026-04-13T08:00:00.000Z',
           dayKey: todayKey(),
+          foodId: null,
+          servings: 1,
         },
       ],
     });
@@ -214,6 +218,8 @@ describe('useAppStore.removeEntry', () => {
           fatG: null,
           loggedAt: '2026-04-13T08:00:00.000Z',
           dayKey: todayKey(),
+          foodId: null,
+          servings: 1,
         },
       ],
     });
@@ -355,6 +361,8 @@ describe('useAppStore.reset', () => {
           fatG: null,
           loggedAt: '2026-04-13T08:00:00.000Z',
           dayKey: todayKey(),
+          foodId: null,
+          servings: 1,
         },
       ],
       goals: { ...DEFAULT_GOALS, calorieGoal: 2500 },
@@ -471,6 +479,8 @@ describe('selectors', () => {
           fatG: null,
           loggedAt: '2026-04-13T08:00:00.000Z',
           dayKey: '2026-04-13',
+          foodId: null,
+          servings: 1,
         },
       ],
       '2026-04-13'
@@ -560,6 +570,7 @@ const SAMPLE_FOOD_ROW = {
   fat_g_per_serving: 3.6,
   barcode: null,
   source: 'user',
+  source_id: null,
   created_at: '2026-04-13T00:00:00.000Z',
   updated_at: '2026-04-13T00:00:00.000Z',
 };
@@ -579,6 +590,7 @@ describe('useAppStore.addFood', () => {
           fatGPerServing: null,
           barcode: null,
           source: 'user',
+          sourceId: null,
           createdAt: '2026-04-12T00:00:00.000Z',
           updatedAt: '2026-04-12T00:00:00.000Z',
         },
@@ -654,6 +666,7 @@ describe('useAppStore.updateFood', () => {
           fatGPerServing: 3.6,
           barcode: null,
           source: 'user',
+          sourceId: null,
           createdAt: '2026-04-13T00:00:00.000Z',
           updatedAt: '2026-04-13T00:00:00.000Z',
         },
@@ -693,6 +706,7 @@ describe('useAppStore.updateFood', () => {
           fatGPerServing: null,
           barcode: null,
           source: 'user',
+          sourceId: null,
           createdAt: '2026-04-13T00:00:00.000Z',
           updatedAt: '2026-04-13T00:00:00.000Z',
         },
@@ -720,6 +734,7 @@ describe('useAppStore.deleteFood', () => {
           fatGPerServing: null,
           barcode: null,
           source: 'user',
+          sourceId: null,
           createdAt: '2026-04-13T00:00:00.000Z',
           updatedAt: '2026-04-13T00:00:00.000Z',
         },
@@ -743,6 +758,7 @@ describe('useAppStore.deleteFood', () => {
           fatGPerServing: null,
           barcode: null,
           source: 'user',
+          sourceId: null,
           createdAt: '2026-04-13T00:00:00.000Z',
           updatedAt: '2026-04-13T00:00:00.000Z',
         },
@@ -785,6 +801,7 @@ describe('searchFoods', () => {
       fatGPerServing: null,
       barcode: null,
       source: 'user',
+      sourceId: null,
       createdAt: '',
       updatedAt: '',
     },
@@ -798,6 +815,7 @@ describe('searchFoods', () => {
       fatGPerServing: null,
       barcode: null,
       source: 'user',
+      sourceId: null,
       createdAt: '',
       updatedAt: '',
     },
@@ -811,6 +829,7 @@ describe('searchFoods', () => {
       fatGPerServing: null,
       barcode: null,
       source: 'user',
+      sourceId: null,
       createdAt: '',
       updatedAt: '',
     },
@@ -987,5 +1006,136 @@ describe('weight selectors', () => {
       makeEntry({ id: 'b', loggedAt: '2026-04-13T08:00:00.000Z', weightKg: 72.4 }),
     ];
     expect(selectLatestWeight(entries)?.id).toBe('b');
+  });
+});
+
+describe('selectRecentFoods', () => {
+  const food = (id: string, name: string): Food => ({
+    id,
+    name,
+    servingSize: null,
+    kcalPerServing: 100,
+    proteinGPerServing: null,
+    carbsGPerServing: null,
+    fatGPerServing: null,
+    barcode: null,
+    source: 'manual',
+    sourceId: null,
+    createdAt: '',
+    updatedAt: '',
+  });
+
+  const entry = (
+    id: string,
+    foodId: string | null,
+    loggedAt: string
+  ): MealEntry => ({
+    id,
+    name: 'x',
+    calories: 100,
+    proteinG: null,
+    carbsG: null,
+    fatG: null,
+    loggedAt,
+    dayKey: loggedAt.slice(0, 10),
+    foodId,
+    servings: 1,
+  });
+
+  it('returns recently-logged distinct foods, newest first', () => {
+    const foods = [food('f-1', 'Apple'), food('f-2', 'Banana'), food('f-3', 'Carrot')];
+    const entries = [
+      entry('e-1', 'f-1', '2026-04-10T08:00:00Z'),
+      entry('e-2', 'f-2', '2026-04-12T08:00:00Z'),
+      entry('e-3', 'f-1', '2026-04-13T08:00:00Z'),
+      entry('e-4', null, '2026-04-13T09:00:00Z'),
+    ];
+    const result = selectRecentFoods(entries, foods);
+    expect(result.map((f) => f.id)).toEqual(['f-1', 'f-2']);
+  });
+
+  it('returns [] when no entries reference a food', () => {
+    const foods = [food('f-1', 'Apple')];
+    const entries = [entry('e-1', null, '2026-04-13T08:00:00Z')];
+    expect(selectRecentFoods(entries, foods)).toEqual([]);
+  });
+
+  it('respects the limit', () => {
+    const foods = Array.from({ length: 12 }, (_, i) => food(`f-${i}`, `n${i}`));
+    const entries = foods.map((f, i) =>
+      entry(`e-${i}`, f.id, `2026-04-${String(i + 1).padStart(2, '0')}T08:00:00Z`)
+    );
+    expect(selectRecentFoods(entries, foods, 3)).toHaveLength(3);
+  });
+});
+
+describe('useAppStore.upsertFoodFromLookup', () => {
+  const lookup: NormalizedFood = {
+    source: 'usda',
+    sourceId: '12345',
+    name: 'Chicken breast',
+    brand: 'Tyson',
+    servingSize: '100 g',
+    kcalPerServing: 165,
+    proteinG: 31,
+    carbsG: 0,
+    fatG: 3.6,
+    imageUrl: null,
+  };
+
+  it('returns existing food when (source, sourceId) already in state', async () => {
+    const existing: Food = {
+      id: 'food-1',
+      name: 'Tyson — Chicken breast',
+      servingSize: '100 g',
+      kcalPerServing: 165,
+      proteinGPerServing: 31,
+      carbsGPerServing: 0,
+      fatGPerServing: 3.6,
+      barcode: null,
+      source: 'usda',
+      sourceId: '12345',
+      createdAt: '',
+      updatedAt: '',
+    };
+    useAppStore.setState({ foods: [existing] });
+
+    const result = await useAppStore.getState().upsertFoodFromLookup(lookup);
+    expect(result.id).toBe('food-1');
+    expect(mock.__state.calls.find((c) => c.method === 'insert')).toBeUndefined();
+  });
+
+  it('inserts a new food when none matches', async () => {
+    signedIn('user-1');
+    enqueue({
+      data: {
+        id: 'food-2',
+        user_id: 'user-1',
+        name: 'Tyson — Chicken breast',
+        serving_size: '100 g',
+        kcal_per_serving: 165,
+        protein_g_per_serving: 31,
+        carbs_g_per_serving: 0,
+        fat_g_per_serving: 3.6,
+        barcode: null,
+        source: 'usda',
+        source_id: '12345',
+        created_at: '2026-04-13T00:00:00.000Z',
+        updated_at: '2026-04-13T00:00:00.000Z',
+      },
+      error: null,
+    });
+
+    const result = await useAppStore.getState().upsertFoodFromLookup(lookup);
+    expect(result.id).toBe('food-2');
+    expect(result.source).toBe('usda');
+    expect(result.sourceId).toBe('12345');
+
+    const insertCall = mock.__state.calls.find((c) => c.method === 'insert');
+    expect(insertCall).toBeDefined();
+    const payload = insertCall!.args[0] as Record<string, unknown>;
+    expect(payload.source).toBe('usda');
+    expect(payload.source_id).toBe('12345');
+    expect(payload.name).toBe('Tyson — Chicken breast');
   });
 });

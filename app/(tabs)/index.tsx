@@ -28,19 +28,10 @@ export default function TodayScreen() {
 
   const goals = useAppStore((s) => s.goals);
   const rawEntries = useAppStore((s) => s.entries);
-  const addEntry = useAppStore((s) => s.addEntry);
   const removeEntry = useAppStore((s) => s.removeEntry);
 
   const totals = useMemo(() => selectTodayTotals(rawEntries), [rawEntries]);
   const entries = useMemo(() => selectTodayEntries(rawEntries), [rawEntries]);
-
-  const handleAddEntry = async (input: Parameters<typeof addEntry>[0]) => {
-    try {
-      await addEntry(input);
-    } catch (err) {
-      Alert.alert('Could not save meal', err instanceof Error ? err.message : 'Unknown error');
-    }
-  };
 
   const handleRemoveEntry = async (id: string) => {
     try {
@@ -80,11 +71,7 @@ export default function TodayScreen() {
         <Plus color={COLORS.text} size={28} weight="bold" />
       </Pressable>
 
-      <AddMealSheet
-        visible={sheetVisible}
-        onClose={() => setSheetVisible(false)}
-        onSubmit={handleAddEntry}
-      />
+      <AddMealSheet visible={sheetVisible} onClose={() => setSheetVisible(false)} />
     </View>
   );
 }

@@ -7,9 +7,19 @@ export interface MealEntry {
   fatG: number | null;
   loggedAt: string;
   dayKey: string;
+  foodId: string | null;
+  servings: number;
 }
 
-export type NewMealInput = Omit<MealEntry, 'id' | 'loggedAt' | 'dayKey'>;
+export interface NewMealInput {
+  name: string;
+  calories: number;
+  proteinG: number | null;
+  carbsG: number | null;
+  fatG: number | null;
+  foodId?: string | null;
+  servings?: number;
+}
 
 export interface Goals {
   calorieGoal: number;
@@ -39,6 +49,7 @@ export interface Food {
   fatGPerServing: number | null;
   barcode: string | null;
   source: string;
+  sourceId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -50,6 +61,9 @@ export interface NewFoodInput {
   proteinGPerServing: number | null;
   carbsGPerServing: number | null;
   fatGPerServing: number | null;
+  source?: string;
+  sourceId?: string | null;
+  barcode?: string | null;
 }
 
 export type FoodUpdateInput = Partial<NewFoodInput>;
