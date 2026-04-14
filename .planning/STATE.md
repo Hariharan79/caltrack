@@ -4,35 +4,32 @@
 
 ---
 
-## 🟢 Next action — pick Phase 17 (barcode) or Phase 18 (calendar history)
+## 🟢 Next action — Phase 13: Bullshit detector (F-20)
 
-Phase 15 shipped + runtime-verified on 2026-04-13 (`7fd7795`). 4 days of weights pre-seeded via Supabase MCP, user logged today's weight live, chart re-ranged, kill/reopen persisted. All 151 tests pass, tsc + lint clean.
+Phase 18 shipped + runtime-verified on 2026-04-13 (`c7e7575`). 10 days of April entries pre-seeded via Supabase MCP covering under/hit/over states, user confirmed grid + dots + sheet + month nav all work. 169/169 tests, tsc + lint clean.
 
-**Phase 11.5 is still parked** on the FatSecret API key (see **D-25**). Phases 12/14/16 all depend on 11.5 transitively, so they're blocked too. That leaves Phase 17 and Phase 18 as the only unblocked v2 leaves.
+**Phase 11.5 remains parked** on the FatSecret API key. After folding Phase 17 into the FatSecret chain (see **D-26** — barcode uses `food.find_id_for_barcode`, not Open Food Facts), the dependency graph now looks like:
 
-### Candidate A: Phase 17 — Barcode scanning (depends on Phase 11 ✅)
+- Blocked on 11.5: Phase 12, 14, 16, 17
+- Unblocked leaves: **Phase 13** (depends on 11 ✅), Phase 19 (brand voice copy pass — better done last, after 12/13/14/16/17 so it covers all surfaces)
 
-- Uses Open Food Facts (free, no API key) — independent of the FatSecret chain
-- New deps: `npx expo install expo-camera` (expo-barcode-scanner is deprecated)
-- Camera permission flow with a graceful denial path
-- Barcode → OFF lookup → pre-fill `FoodForm`; on miss → empty `FoodForm`
-- **Risk:** first native permission in this project + first external HTTP fetch; slightly higher unknowns than 18
-- **Commit:** `feat(foods): barcode scan to pre-fill food form`
+Phase 13 is the only unblocked substantive phase. Spec per ROADMAP:
 
-### Candidate B: Phase 18 — Calendar grid History (depends on Phase 10 ✅)
+- `lib/nutrition.ts` — pure module:
+  - `kcalFromMacros({proteinG, carbsG, fatG})` — 4P + 4C + 9F
+  - `checkMacroSanity({calories, proteinG, carbsG, fatG})` → `{ok: boolean, severity: 'ok' | 'mild' | 'blatant', impliedKcal: number, deltaKcal: number}`
+  - Tolerance: `max(25 kcal, 15% of claimed)`. Severity ratios — decide in tests.
+- Inline warning UI: surface a short dry note on `FoodForm` when `checkMacroSanity` is not `ok` (D-22 voice applies — "These macros don't add up" or similar)
+- ⚠ badge on `EntryRow` for entries derived from foods flagged `blatant`
+- Tests: ≥ 15 unit tests covering null macros, fractional values, high-fiber edge cases, zero-cal/zero-macro, exactly at tolerance, just over, etc.
+- **Runtime verification (N-11):** edit/create a food with mismatched macros → see the warning → save anyway → see the ⚠ badge appear on the log row
+- **Commit:** `feat(nutrition): macro-vs-calories bullshit detector`
 
-- Pure UI rewrite of the History tab — replaces flat list with month-grid
-- Zero new deps, zero permissions, zero external APIs
-- Header with month navigation + "Today" jump; 7-col grid; cells colored by goal hit-rate (green/yellow/red/gray)
-- Tap a day → existing `HistoryDay` detail view
-- **Risk:** lowest — no native surface area, no new schema. Probably a one-session ship
-- **Commit:** `feat(history): calendar grid view`
+### Why this shape
 
-### Recommendation
-
-**Phase 18 first** — it's lower-risk, no package installs, and unblocks the brand-voice copy pass (Phase 19) without waiting on permissions or network. Phase 17 can slot in after, or even later if Phase 11.5 resumes first (barcode flow and FatSecret lookup share the "pre-fill FoodForm" code path, so doing them together might let us factor that once).
-
-But either is defensible — raise a preference and we'll go.
+- Phase 13 touches `FoodForm` and `EntryRow` — both already exist and are stable. No new routes, no migrations, no deps.
+- The pure `lib/nutrition.ts` is easy to TDD. Most of the work is test coverage.
+- Once 13 is done, the only remaining unblocked work is Phase 19 (copy pass), which should wait until 11.5 unblocks the rest of the chain so the copy pass covers everything at once.
 
 ### Known gotchas (carry forward, read before touching anything)
 
@@ -46,6 +43,7 @@ But either is defensible — raise a preference and we'll go.
 - **Test supabase mocking pattern** — the chainable mock in `__tests__/lib/store.test.ts` uses a thenable `builder.then` so both `.single()` and bare `await supabase.from(...).select().eq(...)` both drain from the same `state.queue`. When adding a new test, enqueue results in the exact order the store will consume them. `hydrate()` now reads **goals / entries / foods / weight_entries** in that order — enqueue four responses (existing 2-response hydrate tests still pass because the mock falls back to `{ data: null, error: null }`, which maps safely to `[]`).
 - **`react-native-svg` was NOT pre-installed** despite the ROADMAP claiming "ships with Expo" — I installed it via `npx expo install react-native-svg` during Phase 15. Already whitelisted in `jest.config.js` transformIgnorePatterns, so component tests Just Work.
 - **Chart width** — `WeightChart` takes an explicit `width` prop because `<Svg>` needs numeric width. `profile.tsx` uses `onLayout` on the card to capture the available width, stored in state, and only renders the chart once width > 0.
+- **Don't import from `lib/store.ts` in pure utility modules** — `lib/store.ts` transitively imports `@react-native-async-storage/async-storage` via `lib/supabase.ts`, which fails in Jest without the `store.test.ts`-style manual `jest.mock('@/lib/supabase', ...)`. Phase 18's `lib/calendar.ts` originally called `store.computeDailyTotals` and blew up at test time; the fix was to inline the aggregation in `buildTotalsByDay`. Rule of thumb: pure utility modules should only import from `lib/date.ts` or other pure helpers, never from `store.ts` / `supabase.ts` / `auth.ts`.
 
 ---
 
@@ -54,7 +52,7 @@ But either is defensible — raise a preference and we'll go.
 - **Repo:** `/Users/hari7aran/Desktop/caltrack-autopilot-test`
 - **Supabase project:** `gjzonxmvfaokjpgfykrn.supabase.co` (MCP connected)
 - **Branch:** `main` (all work lives here; no feature branches this project)
-- **Last commit:** `7fd7795` — `feat(weight): log body weight and render trend chart`
+- **Last commit:** `c7e7575` — `feat(history): calendar grid with day detail sheet`
 - **User mode:** interactive during the day, occasionally authorizes autonomous overnight work. See `~/.claude/projects/-Users-hari7aran-Desktop-caltrack-autopilot-test/memory/session_mode_overnight.md`.
 - **Read-before-edit hook:** this project has an aggressive PreToolUse hook that flags edits to files not read-in-session. It's noisy but edits still succeed. Just re-read and retry if needed.
 
@@ -87,13 +85,13 @@ But either is defensible — raise a preference and we'll go.
 - [x] Phase 10 — Store refactor to Supabase-backed (`c3c419d`, runtime-verified 2026-04-13)
 - [x] Phase 11 — Foods table CRUD + library UI (`9bb1b8f`, runtime-verified 2026-04-13)
 - [ ] Phase 11.5 — FatSecret API client (**D-25 supersedes D-24** — parked on user credentials)
-- [ ] Phase 12 — Food-first logging flow with stepper (wires FatSecret)
-- [ ] Phase 13 — Bullshit detector (F-20)
-- [ ] Phase 14 — Edit entries in place
+- [ ] Phase 12 — Food-first logging flow with stepper (blocked: depends on 11.5)
+- [ ] **Phase 13 — Bullshit detector (F-20)** ← YOU ARE HERE (depends on 11 ✅, only unblocked substantive leaf)
+- [ ] Phase 14 — Edit entries in place (blocked: depends on 12 → 11.5)
 - [x] Phase 15 — Weight tracking + trend chart (`7fd7795`, runtime-verified 2026-04-13)
 - [ ] Phase 16 — Meal planning (blocked: depends on 12 → 11.5)
-- [ ] Phase 17 — Barcode scanning ← unblocked (depends on 11 ✅, uses Open Food Facts, independent of FatSecret)
-- [ ] **Phase 18 — Calendar grid History** ← unblocked (depends on 10 ✅), recommended next
+- [ ] Phase 17 — Barcode scanning (blocked: re-routed through FatSecret per **D-26**, so now depends on 11.5)
+- [x] Phase 18 — Calendar grid History (`c7e7575`, runtime-verified 2026-04-13)
 - [ ] Phase 19 — Brand voice copy pass
 - [ ] Phase 20 — v2 verification + MORNING_SUMMARY_v2.md
 
@@ -101,8 +99,8 @@ But either is defensible — raise a preference and we'll go.
 
 | Check | Status |
 |---|---|
-| `npx tsc --noEmit` | ✅ clean (end of Phase 15) |
-| `npx jest` | ✅ 151/151 passing (end of Phase 15; +23 new: 9 weight validation, 10 store weight actions/selectors, 4 chart render) |
+| `npx tsc --noEmit` | ✅ clean (end of Phase 18) |
+| `npx jest` | ✅ 169/169 passing (end of Phase 18; +18 new from `lib/calendar.test.ts`) |
 | `npx expo lint` | ✅ 0 errors, 0 warnings |
 | `lib/` coverage | ✅ (not re-measured this session — rerun `jest --coverage` if needed) |
 | Supabase MCP | ✅ connected, 20 tools available |

@@ -173,3 +173,15 @@ Phase 12 still consumes the client, but the Phase 12 plan needs a revisit once w
 Trade-off vs Nutritionix: FatSecret's OAuth + free-text nutrition field are more work. But Basic tier is genuinely free indefinitely, which is the whole point of this switch.
 
 **Phase 11.5 is blocked** until the FatSecret key arrives. Moving forward with other phases in the meantime.
+
+## D-26 — Phase 17 uses FatSecret barcode, not Open Food Facts (**amends Phase 17 ROADMAP entry**)
+
+2026-04-13: User pointed out that FatSecret Platform API has a `food.find_id_for_barcode` endpoint. Since we're already adding a FatSecret client in Phase 11.5, Phase 17 should reuse that client rather than introduce Open Food Facts as a second food source.
+
+Impact on Phase 17:
+- `npx expo install expo-camera` still needed for the native barcode scan UI
+- Barcode scan → `food.find_id_for_barcode` → `food.get.v2` → pre-fill existing `FoodForm` using the same shape normalizer Phase 11.5 builds
+- Fallback on miss: open empty `FoodForm` (unchanged)
+- **Phase 17 is now blocked on 11.5** — moving it out of the "unblocked leaves" bucket until FatSecret credentials land. This is a scope trade we accept to avoid maintaining two food APIs.
+
+Phase 18 (calendar History) is now the only unblocked v2 leaf. Picking it up next.
