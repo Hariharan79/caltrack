@@ -1,29 +1,55 @@
 import { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CaretLeft, CaretRight } from 'phosphor-react-native';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
-import { useAppStore, selectHistory } from '@/lib/store';
-import { HistoryDay } from '@/components/HistoryDay';
+import { useAppStore } from '@/lib/store';
+import { CalendarGrid } from '@/components/CalendarGrid';
+import { DayDetailSheet } from '@/components/DayDetailSheet';
+import {
+  addMonths,
+  buildMonthGrid,
+  buildTotalsByDay,
+  currentMonth,
+  formatMonthLabel,
+  isSameMonth,
+  type CalendarMonth,
+} from '@/lib/calendar';
 
 const TAB_BAR_PADDING = 96;
 
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
-  const rawEntries = useAppStore((s) => s.entries);
+  const entries = useAppStore((s) => s.entries);
   const goals = useAppStore((s) => s.goals);
-  const history = useMemo(() => selectHistory(rawEntries), [rawEntries]);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const toggle = (dayKey: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(dayKey)) {
-        next.delete(dayKey);
-      } else {
-        next.add(dayKey);
-      }
-      return next;
-    });
+  const [visibleMonth, setVisibleMonth] = useState<CalendarMonth>(() =>
+    currentMonth()
+  );
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+
+  const rows = useMemo(
+    () => buildMonthGrid(visibleMonth.year, visibleMonth.month),
+    [visibleMonth]
+  );
+  const totalsByDay = useMemo(() => buildTotalsByDay(entries), [entries]);
+  const monthLabel = formatMonthLabel(visibleMonth.year, visibleMonth.month);
+  const thisMonth = currentMonth();
+  const atCurrentMonth = isSameMonth(visibleMonth, thisMonth);
+
+  const selectedTotals = selectedDay ? totalsByDay.get(selectedDay) ?? null : null;
+  const selectedEntries = selectedDay
+    ? entries.filter((e) => e.dayKey === selectedDay)
+    : [];
+
+  const goPrev = () => {
+    setVisibleMonth((m) => addMonths(m.year, m.month, -1));
+  };
+  const goNext = () => {
+    setVisibleMonth((m) => addMonths(m.year, m.month, 1));
+  };
+  const goToday = () => {
+    setVisibleMonth(currentMonth());
   };
 
   return (
@@ -37,28 +63,85 @@ export default function HistoryScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.heading}>History</Text>
-          <Text style={styles.sub}>
-            {history.length === 0 ? 'No past days yet' : `${history.length} day${history.length === 1 ? '' : 's'} logged`}
-          </Text>
         </View>
 
-        {history.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>Logged meals will appear here once a day rolls over.</Text>
-          </View>
-        ) : (
-          history.map((day) => (
-            <HistoryDay
-              key={day.totals.dayKey}
-              totals={day.totals}
-              entries={day.entries}
-              expanded={expanded.has(day.totals.dayKey)}
-              onToggle={toggle}
-              goalCalories={goals.calorieGoal}
-            />
-          ))
-        )}
+        <View style={styles.monthBar}>
+          <Pressable
+            onPress={goPrev}
+            accessibilityRole="button"
+            accessibilityLabel="Previous month"
+            testID="cal-prev"
+            style={styles.navButton}
+            hitSlop={8}
+          >
+            <CaretLeft color={COLORS.text} size={20} weight="bold" />
+          </Pressable>
+
+          <Text style={styles.monthLabel} testID="cal-month-label">
+            {monthLabel}
+          </Text>
+
+          <Pressable
+            onPress={goNext}
+            accessibilityRole="button"
+            accessibilityLabel="Next month"
+            testID="cal-next"
+            style={styles.navButton}
+            hitSlop={8}
+          >
+            <CaretRight color={COLORS.text} size={20} weight="bold" />
+          </Pressable>
+        </View>
+
+        {!atCurrentMonth ? (
+          <Pressable
+            onPress={goToday}
+            accessibilityRole="button"
+            accessibilityLabel="Jump to today"
+            testID="cal-today"
+            style={styles.todayButton}
+          >
+            <Text style={styles.todayLabel}>Jump to today</Text>
+          </Pressable>
+        ) : null}
+
+        <CalendarGrid
+          rows={rows}
+          totalsByDay={totalsByDay}
+          goalCalories={goals.calorieGoal}
+          onDayPress={(dayKey) => setSelectedDay(dayKey)}
+          testID="cal-grid"
+        />
+
+        <View style={styles.legend}>
+          <LegendItem color={COLORS.primary} label="At goal ±10%" />
+          <LegendItem color={COLORS.fat} label="Under" />
+          <LegendItem color={COLORS.protein} label="Over" />
+        </View>
       </ScrollView>
+
+      <DayDetailSheet
+        visible={selectedDay !== null}
+        dayKey={selectedDay}
+        totals={selectedTotals}
+        entries={selectedEntries}
+        goalCalories={goals.calorieGoal}
+        onClose={() => setSelectedDay(null)}
+      />
+    </View>
+  );
+}
+
+interface LegendItemProps {
+  color: string;
+  label: string;
+}
+
+function LegendItem({ color, label }: LegendItemProps) {
+  return (
+    <View style={styles.legendItem}>
+      <View style={[styles.legendDot, { backgroundColor: color }]} />
+      <Text style={styles.legendText}>{label}</Text>
     </View>
   );
 }
@@ -73,30 +156,62 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.lg,
   },
   header: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   heading: {
     color: COLORS.text,
     fontSize: TYPOGRAPHY.size.display,
     fontWeight: TYPOGRAPHY.weight.bold,
   },
-  sub: {
-    color: COLORS.textSecondary,
-    fontSize: TYPOGRAPHY.size.md,
-    marginTop: 2,
+  monthBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+    marginBottom: SPACING.sm,
   },
-  empty: {
+  monthLabel: {
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.size.lg,
+    fontWeight: TYPOGRAPHY.weight.semibold,
+  },
+  navButton: {
+    padding: SPACING.sm,
+  },
+  todayButton: {
+    alignSelf: 'center',
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.md,
     backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
-    paddingVertical: SPACING.xl,
-    paddingHorizontal: SPACING.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.border,
-    alignItems: 'center',
+    marginBottom: SPACING.sm,
   },
-  emptyText: {
+  todayLabel: {
+    color: COLORS.primary,
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: TYPOGRAPHY.weight.semibold,
+  },
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: SPACING.lg,
+    paddingHorizontal: SPACING.sm,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
     color: COLORS.textSecondary,
-    fontSize: TYPOGRAPHY.size.md,
-    textAlign: 'center',
+    fontSize: TYPOGRAPHY.size.sm,
   },
 });
