@@ -4,34 +4,25 @@
 
 ---
 
-## 🟡 Next action — Finish runtime verification of Phase 12 USDA path
+## 🟢 Next action — Phase 13 (bullshit detector, F-20) or Phase 17 (barcode scan)
 
-Phase 12 code shipped on 2026-04-13 (`fbb2921` — `feat(log): food-first logging via usda search`). Migration `20260413000200_phase12_foods_external_source.sql` applied (foods.source CHECK now allows `usda` and `off`; new `source_id text` column + partial index). Auth fix shipped right after (`386d4ef` — explicit bearer header on `functions.invoke` + AppState/startAutoRefresh wiring; see new gotcha below). 224/224 jest, tsc + lint clean.
+Phase 12 verified end-to-end on 2026-04-14 after a JWT-algorithm triage that produced **D-28** (see DECISIONS.md). `food-lookup` now ships with `verify_jwt:false` because the project's auth mints ES256 user tokens while the function gateway's JWT verification is still pinned to HS256 and 401s every real user token. `lib/foodLookup.ts` also switched from `supabase.functions.invoke` to raw `fetch` for deterministic header handling. 229/229 jest, tsc + lint clean.
 
-### What's done
+### Confirmed working (2026-04-14)
 
-- **Code complete** for Phase 12: tabbed `AddMealSheet`, `components/Stepper.tsx`, `selectRecentFoods`, `upsertFoodFromLookup`, `addEntry` accepts `foodId` + `servings`, foods library shows USDA-sourced rows alongside manual ones.
-- **Migration applied** to remote DB (verified via execute_sql).
-- **Runtime verification — partial:** in the iOS sim on 2026-04-14, user confirmed checks 1 (stepper save 0.5/2.5), 3 (recents list), and 4 (Quick add regression) all pass. Check 2 (USDA upsert into foods library) still pending — see below.
+Searched `doritos` in the log sheet → USDA section populated → tapped a Doritos result → set servings → saved. DB now has:
 
-### Why check 2 isn't done yet
+- `public.foods` row: `Doritos — .75OZ DORITOS NACHO`, `source='usda'`, `source_id='1459860'`, `kcal_per_serving=425`.
+- `public.log_entries` row: 1 serving, 425 kcal, `food_id` pointing at the new USDA food.
 
-User searched "chicken" and tapped what they thought was a USDA result, but they already had a manual `Chicken Breast` in their library from earlier testing. The Log tab shows local matches under "Your library" and remote ones under "USDA" as separate sections, and the user tapped the local one → `handlePickLocal` fired → no USDA upsert ever ran. DB query confirmed: `food_id` on the chicken-breast log entries points to the pre-existing manual food (`source='manual'`, `source_id=null`).
+All four Phase 12 runtime checks now pass: (1) stepper save 0.5/2.5, (2) USDA upsert into foods, (3) recents list, (4) Quick add regression clean.
 
-Then on the retry, `food-lookup` started returning 401. Root cause was the supabase auth wiring gap (D-27 didn't anticipate this). Fixed in `386d4ef`. **Not yet retested live** — that's the open task.
+### Pick next
 
-### To finish Phase 12 next session
+- **Phase 13** (F-20 bullshit detector) — independently unblocked since Phase 11. Pure lib + UI work, no new edge function, no new migration. Probably 1–2 sessions.
+- **Phase 17** (barcode scan) — needs `expo-camera` install. One-screen feature. Feeds directly into the Phase 12 pre-fill UX we just verified, so it's the natural follow-up if you want to close out the food-lookup surface area in one arc.
 
-1. Reload Expo Go in the sim (Cmd+R) to pick up `386d4ef`.
-2. Open the log sheet, search for a brand-y term that **does not** match anything in the user's local foods (e.g. `doritos`, `tyson nuggets`, `cheerios`, `kraft mac`). The "Your library" section should be empty; only USDA results show.
-3. Tap a USDA result, set servings, save.
-4. Open the foods library — the brand item should appear with `source='usda'`. Cross-check with `select * from public.foods where source='usda'` if needed.
-5. If it works: update STATE.md to mark Phase 12 [x], rewrite the next-action header to point at Phase 13 or 17, commit `docs(state): phase 12 verified`.
-6. If it doesn't: check `mcp__supabase__get_logs({service: 'edge-function'})` for new 401s — auth fix may need a follow-up.
-
-### Phase 17 unblocked too
-
-Phase 17 (barcode scan) only depends on `lib/foodLookup.ts` (done) plus `expo-camera` install. It's a one-screen feature — could be done before or after Phase 13. After 12 is more natural since the barcode result feeds into the same pre-fill UX.
+Phase 14 (edit entries in place) and Phase 16 (meal planning) are still blocked on Phase 12 dependencies being stable — they are now unblocked, but lower priority than 13/17.
 
 ### Known gotchas (carry forward, read before touching anything)
 
@@ -47,7 +38,7 @@ Phase 17 (barcode scan) only depends on `lib/foodLookup.ts` (done) plus `expo-ca
 - **Chart width** — `WeightChart` takes an explicit `width` prop because `<Svg>` needs numeric width. `profile.tsx` uses `onLayout` on the card to capture the available width, stored in state, and only renders the chart once width > 0.
 - **Don't import from `lib/store.ts` in pure utility modules** — `lib/store.ts` transitively imports `@react-native-async-storage/async-storage` via `lib/supabase.ts`, which fails in Jest without the `store.test.ts`-style manual `jest.mock('@/lib/supabase', ...)`. Phase 18's `lib/calendar.ts` originally called `store.computeDailyTotals` and blew up at test time; the fix was to inline the aggregation in `buildTotalsByDay`. Rule of thumb: pure utility modules should only import from `lib/date.ts` or other pure helpers, never from `store.ts` / `supabase.ts` / `auth.ts`.
 - **Edge function deploy is single-file inlined** — `mcp__supabase__deploy_edge_function` accepts multiple files but Deno's relative TypeScript imports in the deploy bundle don't always resolve cleanly across folders. Workaround used in Phase 11.5: keep source files split for editing (`supabase/functions/food-lookup/index.ts`, `_shared/cors.ts`, `lib/foodNormalizers.ts`) but pass a single inlined string to the deploy tool. After editing any of the split files, re-bundle by hand. tsconfig.json + eslint.config.js exclude `supabase/functions/**` so the Deno-only code doesn't get type-checked or linted by the Node toolchain.
-- **`supabase.functions.invoke` from `lib/foodLookup.ts` requires the user's auth token** — the function has `verify_jwt: true`. As of `386d4ef`, `lib/foodLookup.ts` reads `supabase.auth.getSession()` and passes `Authorization: Bearer <token>` explicitly in the invoke headers. supabase-js v2.103 doesn't reliably propagate JWT changes to its cached FunctionsClient — relying on the auto-attach drifted out of sync with the (working) PostgREST client and produced 401s while `from(...)` calls still worked. Don't remove the explicit header.
+- **`food-lookup` is `verify_jwt:false` and `lib/foodLookup.ts` uses raw `fetch`** — not `supabase.functions.invoke`. This is because the project's auth mints ES256 user tokens but the edge-function gateway rejects them as `Invalid JWT` (it only accepts HS256-signed anon keys). See **D-28** for the full triage. `lib/foodLookup.ts` still attaches `Authorization: Bearer <user_jwt>` and `apikey: <anon>` headers on every request — the function ignores them today, but the day Supabase fixes ES256 gateway verification we can flip `verify_jwt:true` on redeploy without touching client code. Do NOT revert to `supabase.functions.invoke`; the FunctionsClient's per-invoke header merging added debugging friction with zero upside.
 - **AppState ↔ `supabase.auth.startAutoRefresh()` wiring is required in RN** — without it the JS runtime pauses while the app is backgrounded and the auto-refresh timer drifts, so tokens silently expire even while the app appears active. `lib/supabase.ts` now wires this. Don't drop it.
 - **USDA `dataType` matters for parsing** — Branded foods report nutrition in `labelNutrients` (per serving), while Foundation / SR Legacy use `foodNutrients` (per 100g). `lib/foodNormalizers.ts` `normalizeUsda` branches on this. When extending: never assume a single field path works for both.
 
@@ -93,7 +84,7 @@ Phase 17 (barcode scan) only depends on `lib/foodLookup.ts` (done) plus `expo-ca
 - [x] Phase 10 — Store refactor to Supabase-backed (`c3c419d`, runtime-verified 2026-04-13)
 - [x] Phase 11 — Foods table CRUD + library UI (`9bb1b8f`, runtime-verified 2026-04-13)
 - [x] Phase 11.5 — Food-lookup edge function (USDA + OFF) (`abe7d16`, smoke-tested 2026-04-13, see **D-27**)
-- [~] **Phase 12 — Food-first logging flow with stepper** (`fbb2921` shipped + `386d4ef` auth fix; runtime checks 1/3/4 pass, USDA upsert check still pending — see top of file)
+- [x] Phase 12 — Food-first logging flow with stepper (`fbb2921` + `386d4ef` auth fix + D-28 verify_jwt:false redeploy, fully runtime-verified 2026-04-14)
 - [ ] Phase 13 — Bullshit detector (F-20) (independently unblocked since Phase 11)
 - [ ] Phase 14 — Edit entries in place (blocked: depends on 12)
 - [x] Phase 15 — Weight tracking + trend chart (`7fd7795`, runtime-verified 2026-04-13)
@@ -107,10 +98,10 @@ Phase 17 (barcode scan) only depends on `lib/foodLookup.ts` (done) plus `expo-ca
 
 | Check | Status |
 |---|---|
-| `npx tsc --noEmit` | ✅ clean (end of Phase 12 + auth fix) |
-| `npx jest` | ✅ 224/224 passing (+19 since Phase 11.5: Stepper, AddMealSheet log-tab, selectRecentFoods, upsertFoodFromLookup, foodLookup auth header) |
+| `npx tsc --noEmit` | ✅ clean (end of Phase 12 verification) |
+| `npx jest` | ✅ 229/229 passing (foodLookup suite rewritten to mock `fetch` instead of `functions.invoke`, +4 session-refresh tests) |
 | `npx expo lint` | ✅ 0 errors, 0 warnings |
-| `food-lookup` edge function | ✅ deployed v1, JWT verified, USDA + OFF smoke-tested live (saw 401s mid-session — root-caused to client auth wiring, fixed in `386d4ef`, not yet retested live) |
+| `food-lookup` edge function | ✅ deployed v3 with `verify_jwt:false` (D-28). USDA text search + OFF barcode lookup verified end-to-end live 2026-04-14. |
 | `lib/` coverage | ✅ (not re-measured this session — rerun `jest --coverage` if needed) |
 | Supabase MCP | ✅ connected, 20 tools available |
 | Supabase schema | ✅ 5 tables + 1 view + RLS on all, foods has 2 manual rows from sim testing |

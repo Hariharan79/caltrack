@@ -228,3 +228,25 @@ interface NormalizedFood {
 ### History this is escaping
 
 D-09 (original OFF-only plan) → D-24 (swap to Nutritionix, then their free tier vanished overnight) → D-25 (swap to FatSecret) → **D-27** (split into USDA for search + OFF for barcode, both behind an edge function). The lesson recorded for next time: pick the architecture that keeps the credentials server-side from day one, even for a personal app — the refactor cost when you change your mind is real.
+
+## D-28 — `food-lookup` ships with `verify_jwt:false` (**amends D-27**)
+
+2026-04-14 (Phase 12 runtime verification): Every call from the app to `food-lookup` returned `401 {"code":401,"message":"Invalid JWT"}` — even with a fresh sign-in, even with the explicit `Authorization: Bearer <jwt>` header, even after raw-`fetch`-bypassing `supabase.functions.invoke` to rule out client-side header merging.
+
+Root cause (identified by decoding the JWT headers in a temporary debug log inside `lib/foodLookup.ts`):
+
+- This project's auth issues user access tokens signed with **ES256** (header `{"alg":"ES256"}`), part of Supabase's asymmetric-key JWT rollout.
+- The anon key is signed with **HS256** (header `{"alg":"HS256"}`), the legacy symmetric scheme.
+- The `food-lookup` edge-function gateway's JWT verification is still pinned to the HS256 legacy secret. It happily accepts the anon bearer (HS256 → 200) and rejects every real user token (ES256 → 401 "Invalid JWT").
+- Redeploying `food-lookup` with `verify_jwt:true` did **not** refresh the gateway's key config — confirmed with a v2 redeploy that still 401'd. The JWT verification mode on this project looks project-wide and stuck in HS256 mode despite the asymmetric key upgrade.
+
+Decision: **deploy `food-lookup` with `verify_jwt:false`** (v3, 2026-04-14). Rationale:
+
+- This is a strictly-personal single-user app (N-11, D-14). Anonymous access to the function URL is low-risk: it only proxies USDA/OFF (both public APIs) and the only actual cost is burning the `USDA_FDC_API_KEY` hourly quota (1000 req/hr), which is easy to notice and cheap to rotate.
+- The alternative — waiting on a platform-level fix or rolling the project's auth back to HS256 just to re-enable gateway JWT verification on this one function — is not worth the churn for a personal app.
+- `lib/foodLookup.ts` still attaches `Authorization` + `apikey` headers on every call. The function ignores them, but keeping them lets us flip `verify_jwt` back to `true` from the deploy tool the moment Supabase fixes the gateway JWT handling, without touching client code.
+- `lib/foodLookup.ts` was also rewritten to call the function via raw `fetch(FOOD_LOOKUP_URL, …)` instead of `supabase.functions.invoke`. The FunctionsClient route is fine in theory but adds opaque per-invoke header merging behavior that made the triage harder than it needed to be; raw fetch is fully deterministic and easier to debug.
+
+### Revisit trigger
+
+If this project ever becomes multi-user, or if Supabase's Edge Function gateway gains ES256 / JWKS verification for the existing project, flip `verify_jwt` back to `true` on the next deploy and verify with a curl-without-bearer attempt (which should return 401 again).
