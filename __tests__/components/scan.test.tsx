@@ -13,10 +13,12 @@ const mockRouter = {
   back: jest.fn(),
 };
 const mockNavigation = { setOptions: jest.fn() };
+let mockParams: Record<string, string | string[] | undefined> = {};
 
 jest.mock('expo-router', () => ({
   useRouter: () => mockRouter,
   useNavigation: () => mockNavigation,
+  useLocalSearchParams: () => mockParams,
 }));
 
 interface MockPermission {
@@ -53,6 +55,7 @@ beforeEach(() => {
   mockRouter.replace.mockReset();
   mockRouter.back.mockReset();
   mockNavigation.setOptions.mockReset();
+  mockParams = {};
   mockCameraState.permission = { granted: false, canAskAgain: true };
   mockCameraState.request.mockClear();
   clearScanDraft();
@@ -117,10 +120,71 @@ describe('ScanFoodScreen', () => {
 
     const draft = peekScanDraft();
     expect(draft).not.toBeNull();
-    expect(draft?.barcode).toBe('3017620422003');
-    expect(draft?.source).toBe('off');
-    expect(draft?.initial.name).toBe('Ferrero — Nutella');
-    expect(draft?.initial.kcalPerServing).toBe('81');
+    expect(draft?.destination).toBe('library');
+    if (draft?.destination !== 'library') throw new Error('expected library draft');
+    expect(draft.barcode).toBe('3017620422003');
+    expect(draft.source).toBe('off');
+    expect(draft.initial.name).toBe('Ferrero — Nutella');
+    expect(draft.initial.kcalPerServing).toBe('81');
+  });
+
+  it("routes back with a 'log' draft when destination is log and lookup hits", async () => {
+    mockParams = { destination: 'log' };
+    mockCameraState.permission = { granted: false, canAskAgain: false };
+    mockGetByBarcode.mockResolvedValueOnce({
+      source: 'off',
+      sourceId: '3017620422003',
+      name: 'Nutella',
+      brand: 'Ferrero',
+      servingSize: '15 g',
+      kcalPerServing: 81,
+      proteinG: 1,
+      carbsG: 8.6,
+      fatG: 4.7,
+      imageUrl: null,
+    });
+
+    const { getByTestId } = render(<ScanFoodScreen />);
+    fireEvent.press(getByTestId('scan-open-manual'));
+    fireEvent.changeText(getByTestId('scan-manual-input'), '3017620422003');
+
+    await act(async () => {
+      fireEvent.press(getByTestId('scan-manual-submit'));
+    });
+
+    await waitFor(() => {
+      expect(mockRouter.back).toHaveBeenCalled();
+    });
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+
+    const draft = peekScanDraft();
+    expect(draft).not.toBeNull();
+    expect(draft?.destination).toBe('log');
+    if (draft?.destination !== 'log') throw new Error('expected log draft');
+    expect(draft.food.name).toBe('Nutella');
+    expect(draft.food.kcalPerServing).toBe(81);
+    expect(draft.barcode).toBe('3017620422003');
+  });
+
+  it("closes the scanner via router.back when the user taps 'enter macros by hand' in log destination", async () => {
+    mockParams = { destination: 'log' };
+    mockCameraState.permission = { granted: false, canAskAgain: false };
+    mockGetByBarcode.mockResolvedValueOnce(null);
+
+    const { getByTestId } = render(<ScanFoodScreen />);
+    fireEvent.press(getByTestId('scan-open-manual'));
+    fireEvent.changeText(getByTestId('scan-manual-input'), '0000000000000');
+
+    await act(async () => {
+      fireEvent.press(getByTestId('scan-manual-submit'));
+    });
+
+    await waitFor(() => expect(getByTestId('scan-no-match')).toBeTruthy());
+
+    fireEvent.press(getByTestId('scan-fallback-manual'));
+    expect(mockRouter.back).toHaveBeenCalled();
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+    expect(peekScanDraft()).toBeNull();
   });
 
   it('shows the no-match state when lookup returns null', async () => {

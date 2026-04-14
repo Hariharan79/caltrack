@@ -199,6 +199,7 @@ export const COPY = {
       perServing: 'per serving',
       oneServing: '1 serving',
       searchFailedFallback: 'Search failed. Try again.',
+      scanLabel: 'Scan a barcode',
     },
     selected: {
       back: '\u2190 Back to results',
@@ -260,6 +261,26 @@ export const COPY = {
     notSignedIn: 'Not signed in.',
     missingEnv:
       'Missing Supabase env vars. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in .env (see .env.example).',
+  },
+
+  dataSources: {
+    heading: 'Data sources',
+    profileLink: 'Data sources',
+    closeLabel: 'Close data sources',
+    usda: {
+      title: 'USDA FoodData Central',
+      body: 'Nutrition data for generic and branded foods comes from USDA FoodData Central.',
+      linkLabel: 'fdc.nal.usda.gov',
+      linkUrl: 'https://fdc.nal.usda.gov',
+    },
+    off: {
+      title: 'Open Food Facts',
+      body: 'Barcode lookups come from Open Food Facts, a collaborative food product database. Used under the Open Database License.',
+      linkLabel: 'openfoodfacts.org',
+      linkUrl: 'https://openfoodfacts.org',
+      licenseLabel: 'ODbL 1.0 license',
+      licenseUrl: 'https://opendatacommons.org/licenses/odbl/1-0/',
+    },
   },
 } as const;
 

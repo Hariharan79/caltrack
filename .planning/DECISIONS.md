@@ -274,3 +274,14 @@ The iOS simulator cannot scan real barcodes through the lens. Rather than ship a
 - Costs almost nothing — one numeric input and one button.
 
 Picked autonomously during overnight Phase 17 work. Alternative considered: mock the camera entirely (rejected — the real scanner is the happy path on a device). Alternative 2: ship scanner-only and defer verification (rejected — N-11 requires runtime verification before done).
+
+
+## D-33 — Data source attribution and scan entry point
+
+Two small decisions bundled after Phase 17 verification:
+
+1. **Attribution.** Open Food Facts is licensed under ODbL 1.0 which requires visible attribution in consumer apps. USDA FoodData Central is public domain but we credit it as a courtesy. Both appear on a new `app/data-sources.tsx` screen linked from Profile.
+
+2. **Scan from the log sheet.** Phase 17 originally put the Scan entry point in the Food library header. User feedback during verification: the natural flow is Today → FAB → Log → Scan, not a library detour. We added a second Scan entry point in the AddMealSheet Log tab that routes to the same `/foods/scan` screen with `destination: 'log'`. On success, the scanner closes and the meal sheet reopens with the scanned food pre-selected in the servings-stepper flow. The library-header Scan entry point stays for the "save a shelf staple to the library" use case.
+
+Picked during interactive morning verification.

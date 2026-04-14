@@ -107,7 +107,7 @@ Phase 14 (edit entries in place) and Phase 16 (meal planning) are still blocked 
 - [x] Phase 14 — Edit entries in place (shipped overnight 2026-04-14, **runtime verification deferred** — static checks only)
 - [x] Phase 15 — Weight tracking + trend chart (`7fd7795`, runtime-verified 2026-04-13)
 - [ ] Phase 16 — Meal planning (blocked: depends on 12)
-- [x] Phase 17 — Barcode scanning (shipped overnight 2026-04-14, **runtime verification deferred** — static checks only, manual entry fallback provided per D-32)
+- [x] Phase 17 — Barcode scanning (shipped overnight 2026-04-14, **runtime verification deferred** — static checks only, manual entry fallback provided per D-32). **Follow-up (post-verify):** scan entry point moved into the AddMealSheet Log tab in addition to the Food library header, so the natural Today → FAB → Log → Scan flow works end-to-end. See D-33 for rationale. New commit: see git log for `feat(barcode): scan from the log sheet`.
 - [x] Phase 18 — Calendar grid History (`c7e7575`, runtime-verified 2026-04-13)
 - [x] Phase 19 — Brand voice copy pass (`80a508f`, shipped overnight 2026-04-14, **runtime verification deferred** — static checks only)
 - [ ] Phase 20 — v2 verification + MORNING_SUMMARY_v2.md
@@ -117,7 +117,7 @@ Phase 14 (edit entries in place) and Phase 16 (meal planning) are still blocked 
 | Check | Status |
 |---|---|
 | `npx tsc --noEmit` | ✅ clean (end of Phase 19 overnight) |
-| `npx jest` | ✅ 272/272 passing (+6 ScanFoodScreen tests from Phase 17) |
+| `npx jest` | ✅ 282/282 passing (+10 from Phase 17 follow-up: scanDraft test file, log-destination scan routing, AddMealSheet scan-button tests) |
 | `npx expo lint` | ✅ 0 errors, 0 warnings |
 | `food-lookup` edge function | ✅ deployed v3 with `verify_jwt:false` (D-28). USDA text search + OFF barcode lookup verified end-to-end live 2026-04-14. |
 | `lib/` coverage | ✅ (not re-measured this session — rerun `jest --coverage` if needed) |

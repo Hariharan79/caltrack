@@ -32,7 +32,7 @@ export default function FoodsListScreen() {
       headerRight: () => (
         <View style={styles.headerRightRow}>
           <Pressable
-            onPress={() => router.push('/foods/scan')}
+            onPress={() => router.push({ pathname: '/foods/scan', params: { destination: 'library' } })}
             accessibilityRole="button"
             accessibilityLabel={COPY.foods.library.scanLabel}
             hitSlop={12}

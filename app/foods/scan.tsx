@@ -1,6 +1,6 @@
-import { useState, useCallback, useLayoutEffect, useRef } from 'react';
+import { useState, useCallback, useLayoutEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
-import { useRouter, useNavigation } from 'expo-router';
+import { useRouter, useNavigation, useLocalSearchParams } from 'expo-router';
 import { CameraView, useCameraPermissions, type BarcodeType } from 'expo-camera';
 
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -8,10 +8,15 @@ import { COPY } from '@/lib/copy';
 import { TextField } from '@/components/TextField';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { getByBarcode, type NormalizedFood } from '@/lib/foodLookup';
-import { setScanDraft } from '@/lib/scanDraft';
+import { setScanDraft, type ScanDestination } from '@/lib/scanDraft';
 import type { FoodDraft } from '@/lib/foodForm';
 
 type Mode = 'camera' | 'manual';
+
+function parseDestination(raw: string | string[] | undefined): ScanDestination {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return value === 'log' ? 'log' : 'library';
+}
 
 type LookupState =
   | { kind: 'idle' }
@@ -48,6 +53,8 @@ function blankDraftWithBarcode(): FoodDraft {
 export default function ScanFoodScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const params = useLocalSearchParams<{ destination?: string }>();
+  const destination = useMemo(() => parseDestination(params.destination), [params.destination]);
   const [permission, requestPermission] = useCameraPermissions();
   const [mode, setMode] = useState<Mode>('camera');
   const [manualValue, setManualValue] = useState('');
@@ -82,13 +89,23 @@ export default function ScanFoodScreen() {
       try {
         const food = await getByBarcode(trimmed);
         if (food) {
-          setScanDraft({
-            initial: normalizedFoodToDraft(food),
-            source: 'off',
-            sourceId: food.sourceId,
-            barcode: trimmed,
-          });
-          router.replace('/foods/new');
+          if (destination === 'log') {
+            setScanDraft({
+              destination: 'log',
+              food,
+              barcode: trimmed,
+            });
+            router.back();
+          } else {
+            setScanDraft({
+              destination: 'library',
+              initial: normalizedFoodToDraft(food),
+              source: 'off',
+              sourceId: food.sourceId,
+              barcode: trimmed,
+            });
+            router.replace('/foods/new');
+          }
           return;
         }
         setLookup({ kind: 'no-match', code: trimmed });
@@ -97,7 +114,7 @@ export default function ScanFoodScreen() {
         setLookup({ kind: 'error', message, code: trimmed });
       }
     },
-    [router]
+    [destination, router]
   );
 
   const handleCameraScan = useCallback(
@@ -127,14 +144,24 @@ export default function ScanFoodScreen() {
   }, [manualValue, performLookup]);
 
   const goToManualEntry = useCallback(() => {
+    // "Enter macros by hand" only makes sense for the library destination —
+    // it seeds a blank FoodForm the user will fill out manually. For the log
+    // destination the natural fallback is to bounce back to the meal sheet,
+    // where the Quick add tab already exists for by-hand entry. We keep this
+    // path simple: close the scanner and let the user tap Quick add.
+    if (destination === 'log') {
+      router.back();
+      return;
+    }
     setScanDraft({
+      destination: 'library',
       initial: blankDraftWithBarcode(),
       source: 'manual',
       sourceId: null,
       barcode: lookup.kind === 'no-match' || lookup.kind === 'error' ? lookup.code : null,
     });
     router.replace('/foods/new');
-  }, [lookup, router]);
+  }, [destination, lookup, router]);
 
   // ---------- Lookup overlay states (cover both camera and manual modes) ----------
 

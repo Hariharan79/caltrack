@@ -207,6 +207,67 @@ describe('AddMealSheet — edit mode', () => {
   });
 });
 
+describe('AddMealSheet — scan entry point', () => {
+  it('renders the Scan button when onRequestScan is provided and invokes it on press', () => {
+    const onRequestScan = jest.fn();
+    const { getByTestId } = render(
+      <AddMealSheet visible={true} onClose={jest.fn()} onRequestScan={onRequestScan} />
+    );
+    const scanButton = getByTestId('log-scan');
+    fireEvent.press(scanButton);
+    expect(onRequestScan).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not render the Scan button when onRequestScan is omitted', () => {
+    const { queryByTestId } = render(<AddMealSheet visible={true} onClose={jest.fn()} />);
+    expect(queryByTestId('log-scan')).toBeNull();
+  });
+
+  it('opens the servings-stepper view with a pre-seeded scanned food', async () => {
+    const scanned = {
+      source: 'off' as const,
+      sourceId: '3017620422003',
+      name: 'Nutella',
+      brand: 'Ferrero',
+      servingSize: '15 g',
+      kcalPerServing: 81,
+      proteinG: 1,
+      carbsG: 8.6,
+      fatG: 4.7,
+      imageUrl: null,
+    };
+    mockUpsertFoodFromLookup.mockResolvedValue({
+      id: 'food-nutella',
+      name: 'Ferrero — Nutella',
+      servingSize: '15 g',
+      kcalPerServing: 81,
+      proteinGPerServing: 1,
+      carbsGPerServing: 8.6,
+      fatGPerServing: 4.7,
+      barcode: '3017620422003',
+      source: 'off',
+      sourceId: '3017620422003',
+      createdAt: '2026-04-14T00:00:00Z',
+      updatedAt: '2026-04-14T00:00:00Z',
+    });
+    mockAddEntry.mockResolvedValue({ id: 'e1' });
+    const onClose = jest.fn();
+
+    const { getByTestId } = render(
+      <AddMealSheet visible={true} onClose={onClose} initialScannedFood={scanned} />
+    );
+
+    // Search view is skipped; we land directly on the stepper.
+    expect(getByTestId('servings-stepper')).toBeTruthy();
+    expect(getByTestId('log-save')).toBeTruthy();
+
+    fireEvent.press(getByTestId('log-save'));
+    await waitFor(() => expect(mockUpsertFoodFromLookup).toHaveBeenCalled());
+    await waitFor(() => expect(mockAddEntry).toHaveBeenCalled());
+    expect(mockAddEntry.mock.calls[0][0].foodId).toBe('food-nutella');
+  });
+});
+
 describe('AddMealSheet — Log tab', () => {
   it('logs a USDA result via stepper save', async () => {
     mockSearchByText.mockResolvedValue([

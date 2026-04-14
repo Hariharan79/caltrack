@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Pressable,
   type LayoutChangeEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -204,6 +205,17 @@ export default function ProfileScreen() {
           style={styles.saveButton}
         />
 
+        <Pressable
+          onPress={() => router.push('/data-sources')}
+          accessibilityRole="link"
+          accessibilityLabel={COPY.dataSources.profileLink}
+          hitSlop={8}
+          style={styles.dataSourcesLink}
+          testID="open-data-sources"
+        >
+          <Text style={styles.dataSourcesLinkText}>{COPY.dataSources.profileLink}</Text>
+        </Pressable>
+
         <View style={styles.dangerZone}>
           <Text style={styles.dangerLabel}>{COPY.profile.sectionSession}</Text>
           <PrimaryButton
@@ -303,5 +315,16 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     marginBottom: SPACING.md,
+  },
+  dataSourcesLink: {
+    alignSelf: 'center',
+    paddingVertical: SPACING.md,
+    marginTop: SPACING.lg,
+  },
+  dataSourcesLinkText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: TYPOGRAPHY.weight.medium,
+    textDecorationLine: 'underline',
   },
 });

@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { Barcode } from 'phosphor-react-native';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { COPY } from '@/lib/copy';
 import { TextField } from './TextField';
@@ -31,6 +32,19 @@ interface AddMealSheetProps {
   visible: boolean;
   onClose: () => void;
   initialEntry?: MealEntry | null;
+  /**
+   * When set, the sheet opens directly on the Log tab with this food already
+   * selected and the servings-stepper view visible — bypasses the search.
+   * Seeded by the Today screen after a barcode scan completes with
+   * `destination: 'log'`.
+   */
+  initialScannedFood?: NormalizedFood | null;
+  /**
+   * Invoked when the user taps the Scan button in the Log tab search header.
+   * The parent is expected to close the sheet and route to the scan screen
+   * with `destination: 'log'`.
+   */
+  onRequestScan?: () => void;
 }
 
 interface DraftState {
@@ -112,7 +126,13 @@ function entryToDraft(entry: MealEntry): DraftState {
   };
 }
 
-export function AddMealSheet({ visible, onClose, initialEntry = null }: AddMealSheetProps) {
+export function AddMealSheet({
+  visible,
+  onClose,
+  initialEntry = null,
+  initialScannedFood = null,
+  onRequestScan,
+}: AddMealSheetProps) {
   const foods = useAppStore((s) => s.foods);
   const entries = useAppStore((s) => s.entries);
   const addEntry = useAppStore((s) => s.addEntry);
@@ -128,7 +148,9 @@ export function AddMealSheet({ visible, onClose, initialEntry = null }: AddMealS
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
-  const [selected, setSelected] = useState<LogChoice | null>(null);
+  const [selected, setSelected] = useState<LogChoice | null>(
+    initialScannedFood ? { kind: 'lookup', food: initialScannedFood } : null
+  );
   const [servings, setServings] = useState(1);
   const [submitting, setSubmitting] = useState(false);
 
@@ -161,6 +183,20 @@ export function AddMealSheet({ visible, onClose, initialEntry = null }: AddMealS
       setSelected(null);
     }
   }, [visible, initialEntry]);
+
+  // When the parent seeds a scanned food (after returning from the scanner),
+  // jump straight to the Log tab's servings-stepper view with that food
+  // pre-selected. This fires whenever the sheet becomes visible OR the seed
+  // value changes, so repeat scans work.
+  useEffect(() => {
+    if (!visible) return;
+    if (!initialScannedFood) return;
+    setTab('log');
+    setSelected({ kind: 'lookup', food: initialScannedFood });
+    setServings(1);
+    setQuery('');
+    setDebouncedQuery('');
+  }, [visible, initialScannedFood]);
 
   // Debounce query → debouncedQuery
   useEffect(() => {
@@ -352,6 +388,7 @@ export function AddMealSheet({ visible, onClose, initialEntry = null }: AddMealS
                 recentFoods={recentFoods}
                 onPickLocal={handlePickLocal}
                 onPickLookup={handlePickLookup}
+                onRequestScan={onRequestScan}
               />
             )
           ) : (
@@ -401,6 +438,7 @@ interface LogSearchViewProps {
   recentFoods: Food[];
   onPickLocal: (food: Food) => void;
   onPickLookup: (food: NormalizedFood) => void;
+  onRequestScan?: () => void;
 }
 
 function LogSearchView({
@@ -413,21 +451,38 @@ function LogSearchView({
   recentFoods,
   onPickLocal,
   onPickLookup,
+  onRequestScan,
 }: LogSearchViewProps) {
   const showRecent = query.trim() === '';
 
   return (
     <View style={styles.flex}>
       <View style={styles.searchBox}>
-        <TextField
-          label=""
-          value={query}
-          onChangeText={onQueryChange}
-          placeholder={COPY.log.search.placeholder}
-          autoCapitalize="none"
-          autoCorrect={false}
-          testID="log-search"
-        />
+        <View style={styles.searchRow}>
+          <View style={styles.searchFieldWrap}>
+            <TextField
+              label=""
+              value={query}
+              onChangeText={onQueryChange}
+              placeholder={COPY.log.search.placeholder}
+              autoCapitalize="none"
+              autoCorrect={false}
+              testID="log-search"
+            />
+          </View>
+          {onRequestScan ? (
+            <Pressable
+              onPress={onRequestScan}
+              accessibilityRole="button"
+              accessibilityLabel={COPY.log.search.scanLabel}
+              style={styles.scanButton}
+              hitSlop={12}
+              testID="log-scan"
+            >
+              <Barcode color={COLORS.text} size={22} weight="bold" />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       <ScrollView
@@ -759,6 +814,25 @@ const styles = StyleSheet.create({
   searchBox: {
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.md,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  searchFieldWrap: {
+    flex: 1,
+  },
+  scanButton: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: SPACING.xs,
   },
   scrollContent: {
     padding: SPACING.lg,

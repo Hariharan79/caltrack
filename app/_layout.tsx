@@ -65,6 +65,16 @@ function SessionGate() {
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="foods" options={{ presentation: 'modal' }} />
+      <Stack.Screen
+        name="data-sources"
+        options={{
+          presentation: 'modal',
+          headerShown: true,
+          headerStyle: { backgroundColor: COLORS.background },
+          headerTintColor: COLORS.text,
+          headerShadowVisible: false,
+        }}
+      />
     </Stack>
   );
 }

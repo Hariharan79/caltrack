@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Plus } from 'phosphor-react-native';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { COPY } from '@/lib/copy';
@@ -12,6 +13,8 @@ import {
 import { TotalsCard } from '@/components/TotalsCard';
 import { EntriesList } from '@/components/EntriesList';
 import { AddMealSheet } from '@/components/AddMealSheet';
+import { setScanDraft, takeScanDraft } from '@/lib/scanDraft';
+import type { NormalizedFood } from '@/lib/foodNormalizers';
 import type { MealEntry } from '@/types';
 
 const TAB_BAR_PADDING = 96;
@@ -26,8 +29,10 @@ function todayHeaderLabel(now: Date = new Date()): string {
 
 export default function TodayScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [sheetVisible, setSheetVisible] = useState(false);
   const [editingEntry, setEditingEntry] = useState<MealEntry | null>(null);
+  const [scannedFood, setScannedFood] = useState<NormalizedFood | null>(null);
 
   const goals = useAppStore((s) => s.goals);
   const rawEntries = useAppStore((s) => s.entries);
@@ -46,13 +51,42 @@ export default function TodayScreen() {
 
   const handlePressEntry = (entry: MealEntry) => {
     setEditingEntry(entry);
+    setScannedFood(null);
     setSheetVisible(true);
   };
 
   const handleCloseSheet = () => {
     setSheetVisible(false);
     setEditingEntry(null);
+    setScannedFood(null);
   };
+
+  // The Scan button inside AddMealSheet asks us to close and route to the
+  // scanner with destination='log'. Closing first avoids stacking the scanner
+  // under the modal, which swallows back gestures on iOS.
+  const handleRequestScan = useCallback(() => {
+    setSheetVisible(false);
+    setEditingEntry(null);
+    setScannedFood(null);
+    router.push({ pathname: '/foods/scan', params: { destination: 'log' } });
+  }, [router]);
+
+  // When we return from the scanner, a log-destination draft may be waiting.
+  // Claim it on focus, reopen the sheet with the food seeded. Non-log drafts
+  // (e.g. a library scan) are put back for their intended consumer.
+  useFocusEffect(
+    useCallback(() => {
+      const draft = takeScanDraft();
+      if (!draft) return;
+      if (draft.destination !== 'log') {
+        setScanDraft(draft);
+        return;
+      }
+      setEditingEntry(null);
+      setScannedFood(draft.food);
+      setSheetVisible(true);
+    }, [])
+  );
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -82,6 +116,7 @@ export default function TodayScreen() {
       <Pressable
         onPress={() => {
           setEditingEntry(null);
+          setScannedFood(null);
           setSheetVisible(true);
         }}
         style={[styles.fab, { bottom: TAB_BAR_PADDING + insets.bottom - 32 }]}
@@ -96,6 +131,8 @@ export default function TodayScreen() {
         visible={sheetVisible}
         onClose={handleCloseSheet}
         initialEntry={editingEntry}
+        initialScannedFood={scannedFood}
+        onRequestScan={handleRequestScan}
       />
     </View>
   );
