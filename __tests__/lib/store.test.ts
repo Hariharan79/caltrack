@@ -62,9 +62,11 @@ import {
   selectHistory,
   computeDailyTotals,
   searchFoods,
+  selectWeightHistory,
+  selectLatestWeight,
   DEFAULT_GOALS,
 } from '@/lib/store';
-import type { Food, MealEntry } from '@/types';
+import type { Food, MealEntry, WeightEntry } from '@/types';
 import { todayKey } from '@/lib/date';
 
 const mock = supabaseMock as unknown as {
@@ -826,5 +828,164 @@ describe('searchFoods', () => {
 
   it('returns [] when nothing matches', () => {
     expect(searchFoods(foods, 'xyz')).toEqual([]);
+  });
+});
+
+const SAMPLE_WEIGHT_ROW = {
+  id: 'weight-1',
+  user_id: 'user-1',
+  weight_kg: 72.4,
+  body_fat_pct: 18.5,
+  logged_at: '2026-04-13T08:00:00.000Z',
+  day_key: '2026-04-13',
+  created_at: '2026-04-13T08:00:00.000Z',
+};
+
+describe('useAppStore.addWeight', () => {
+  it('inserts via supabase and prepends the returned row to local state', async () => {
+    signedIn('user-1');
+    enqueue({ data: SAMPLE_WEIGHT_ROW, error: null });
+
+    const entry = await useAppStore.getState().addWeight({
+      weightKg: 72.4,
+      bodyFatPct: 18.5,
+    });
+
+    expect(entry.id).toBe('weight-1');
+    expect(entry.weightKg).toBe(72.4);
+    expect(entry.bodyFatPct).toBe(18.5);
+
+    const entries = useAppStore.getState().weightEntries;
+    expect(entries).toHaveLength(1);
+    expect(entries[0].id).toBe('weight-1');
+
+    const insertCall = mock.__state.calls.find((c) => c.method === 'insert');
+    expect(insertCall).toBeDefined();
+    const payload = insertCall!.args[0] as Record<string, unknown>;
+    expect(payload.user_id).toBe('user-1');
+    expect(payload.weight_kg).toBe(72.4);
+    expect(payload.body_fat_pct).toBe(18.5);
+    expect(payload.day_key).toBeDefined();
+  });
+
+  it('persists null body fat when omitted', async () => {
+    signedIn();
+    enqueue({
+      data: { ...SAMPLE_WEIGHT_ROW, body_fat_pct: null },
+      error: null,
+    });
+    const entry = await useAppStore
+      .getState()
+      .addWeight({ weightKg: 72.4, bodyFatPct: null });
+    expect(entry.bodyFatPct).toBeNull();
+  });
+
+  it('throws when not authenticated', async () => {
+    await expect(
+      useAppStore.getState().addWeight({ weightKg: 72, bodyFatPct: null })
+    ).rejects.toThrow(/authenticated/i);
+    expect(useAppStore.getState().weightEntries).toHaveLength(0);
+  });
+
+  it('throws supabase error and leaves local state untouched', async () => {
+    signedIn();
+    enqueue({ data: null, error: { message: 'rls denied' } });
+    await expect(
+      useAppStore.getState().addWeight({ weightKg: 72, bodyFatPct: null })
+    ).rejects.toThrow('rls denied');
+    expect(useAppStore.getState().weightEntries).toHaveLength(0);
+  });
+});
+
+describe('useAppStore.removeWeight', () => {
+  it('removes the weight from local state after supabase delete', async () => {
+    useAppStore.setState({
+      weightEntries: [
+        {
+          id: 'weight-1',
+          weightKg: 72.4,
+          bodyFatPct: 18.5,
+          loggedAt: '2026-04-13T08:00:00.000Z',
+          dayKey: '2026-04-13',
+        },
+      ],
+    });
+    enqueue({ data: null, error: null });
+    await useAppStore.getState().removeWeight('weight-1');
+    expect(useAppStore.getState().weightEntries).toHaveLength(0);
+  });
+
+  it('leaves local state untouched on supabase error', async () => {
+    useAppStore.setState({
+      weightEntries: [
+        {
+          id: 'weight-1',
+          weightKg: 72.4,
+          bodyFatPct: null,
+          loggedAt: '2026-04-13T08:00:00.000Z',
+          dayKey: '2026-04-13',
+        },
+      ],
+    });
+    enqueue({ data: null, error: { message: 'network down' } });
+    await expect(useAppStore.getState().removeWeight('weight-1')).rejects.toThrow(
+      'network down'
+    );
+    expect(useAppStore.getState().weightEntries).toHaveLength(1);
+  });
+});
+
+describe('useAppStore.hydrate with weights', () => {
+  it('loads weight entries alongside goals, entries, and foods', async () => {
+    enqueue({ data: null, error: null }); // goals
+    enqueue({ data: [], error: null }); // log_entries
+    enqueue({ data: [], error: null }); // foods
+    enqueue({
+      data: [
+        SAMPLE_WEIGHT_ROW,
+        { ...SAMPLE_WEIGHT_ROW, id: 'weight-2', weight_kg: 72.1 },
+      ],
+      error: null,
+    });
+
+    await useAppStore.getState().hydrate('user-1');
+    const weights = useAppStore.getState().weightEntries;
+    expect(weights).toHaveLength(2);
+    expect(weights[0].id).toBe('weight-1');
+    expect(weights[0].weightKg).toBe(72.4);
+    expect(weights[1].weightKg).toBe(72.1);
+  });
+});
+
+describe('weight selectors', () => {
+  const makeEntry = (overrides: Partial<WeightEntry>): WeightEntry => ({
+    id: 'w-x',
+    weightKg: 70,
+    bodyFatPct: null,
+    loggedAt: '2026-04-13T08:00:00.000Z',
+    dayKey: '2026-04-13',
+    ...overrides,
+  });
+
+  it('selectWeightHistory sorts newest first', () => {
+    const unsorted: WeightEntry[] = [
+      makeEntry({ id: 'a', loggedAt: '2026-04-10T08:00:00.000Z', weightKg: 73 }),
+      makeEntry({ id: 'b', loggedAt: '2026-04-13T08:00:00.000Z', weightKg: 72.4 }),
+      makeEntry({ id: 'c', loggedAt: '2026-04-12T08:00:00.000Z', weightKg: 72.8 }),
+    ];
+    const sorted = selectWeightHistory(unsorted);
+    expect(sorted.map((w) => w.id)).toEqual(['b', 'c', 'a']);
+  });
+
+  it('selectLatestWeight returns null on empty', () => {
+    expect(selectLatestWeight([])).toBeNull();
+  });
+
+  it('selectLatestWeight returns the most recent entry', () => {
+    const entries: WeightEntry[] = [
+      makeEntry({ id: 'a', loggedAt: '2026-04-10T08:00:00.000Z', weightKg: 73 }),
+      makeEntry({ id: 'b', loggedAt: '2026-04-13T08:00:00.000Z', weightKg: 72.4 }),
+    ];
+    expect(selectLatestWeight(entries)?.id).toBe('b');
   });
 });

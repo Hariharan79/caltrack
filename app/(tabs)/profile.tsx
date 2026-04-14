@@ -1,11 +1,20 @@
 import { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
-import { useAppStore } from '@/lib/store';
+import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useAppStore, selectLatestWeight } from '@/lib/store';
 import { TextField } from '@/components/TextField';
 import { PrimaryButton } from '@/components/PrimaryButton';
+import { WeightChart } from '@/components/WeightChart';
+import { WeightLogSheet } from '@/components/WeightLogSheet';
 import { signOut } from '@/lib/auth';
 import {
   goalsToDraft,
@@ -21,11 +30,32 @@ export default function ProfileScreen() {
   const goals = useAppStore((s) => s.goals);
   const updateGoals = useAppStore((s) => s.updateGoals);
   const foodsCount = useAppStore((s) => s.foods.length);
+  const weightEntries = useAppStore((s) => s.weightEntries);
+  const addWeight = useAppStore((s) => s.addWeight);
+  const latestWeight = useMemo(() => selectLatestWeight(weightEntries), [weightEntries]);
 
   const [draft, setDraft] = useState<GoalsDraft>(() => goalsToDraft(goals));
   const [submitted, setSubmitted] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [weightSheetVisible, setWeightSheetVisible] = useState(false);
+  const [chartWidth, setChartWidth] = useState(0);
+
+  const onChartLayout = (e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w !== chartWidth) setChartWidth(w);
+  };
+
+  const handleLogWeight = async (input: { weightKg: number; bodyFatPct: number | null }) => {
+    try {
+      await addWeight(input);
+    } catch (err) {
+      Alert.alert(
+        'Could not save weight',
+        err instanceof Error ? err.message : 'Unknown error'
+      );
+    }
+  };
 
   useEffect(() => {
     setDraft(goalsToDraft(goals));
@@ -87,6 +117,31 @@ export default function ProfileScreen() {
         <View style={styles.header}>
           <Text style={styles.heading}>Profile</Text>
           <Text style={styles.sub}>Daily nutrition goals</Text>
+        </View>
+
+        <View style={styles.weightCard} onLayout={onChartLayout}>
+          <View style={styles.weightHeader}>
+            <Text style={styles.sectionLabel}>Weight</Text>
+            {latestWeight ? (
+              <Text style={styles.weightLatest} testID="weight-latest">
+                {latestWeight.weightKg.toFixed(1)} kg
+              </Text>
+            ) : null}
+          </View>
+          {chartWidth > 0 ? (
+            <WeightChart
+              entries={weightEntries}
+              width={chartWidth}
+              testID="weight-chart"
+            />
+          ) : null}
+          <PrimaryButton
+            label="Log weight"
+            onPress={() => setWeightSheetVisible(true)}
+            variant="secondary"
+            testID="open-weight-sheet"
+            style={styles.weightButton}
+          />
         </View>
 
         <PrimaryButton
@@ -159,6 +214,12 @@ export default function ProfileScreen() {
           />
         </View>
       </ScrollView>
+
+      <WeightLogSheet
+        visible={weightSheetVisible}
+        onClose={() => setWeightSheetVisible(false)}
+        onSubmit={handleLogWeight}
+      />
     </View>
   );
 }
@@ -197,6 +258,36 @@ const styles = StyleSheet.create({
   },
   libraryButton: {
     marginBottom: SPACING.lg,
+  },
+  weightCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.border,
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
+  },
+  weightHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+    paddingHorizontal: SPACING.xs,
+  },
+  sectionLabel: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: TYPOGRAPHY.weight.medium,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  weightLatest: {
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.size.lg,
+    fontWeight: TYPOGRAPHY.weight.semibold,
+  },
+  weightButton: {
+    marginTop: SPACING.md,
   },
   dangerZone: {
     marginTop: SPACING.xxxl,

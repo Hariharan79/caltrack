@@ -7,6 +7,8 @@ import type {
   Food,
   NewFoodInput,
   FoodUpdateInput,
+  WeightEntry,
+  NewWeightInput,
 } from '@/types';
 import type { Database, TablesUpdate } from '../types/db';
 import { dayKey, todayKey } from './date';
@@ -15,11 +17,13 @@ import { supabase } from './supabase';
 type LogEntryRow = Database['public']['Tables']['log_entries']['Row'];
 type GoalsRow = Database['public']['Tables']['goals']['Row'];
 type FoodRow = Database['public']['Tables']['foods']['Row'];
+type WeightRow = Database['public']['Tables']['weight_entries']['Row'];
 
 export interface AppState {
   entries: MealEntry[];
   goals: Goals;
   foods: Food[];
+  weightEntries: WeightEntry[];
   hydrated: boolean;
   hydrating: boolean;
   error: string | null;
@@ -31,6 +35,8 @@ export interface AppState {
   addFood: (input: NewFoodInput) => Promise<Food>;
   updateFood: (id: string, patch: FoodUpdateInput) => Promise<Food>;
   deleteFood: (id: string) => Promise<void>;
+  addWeight: (input: NewWeightInput) => Promise<WeightEntry>;
+  removeWeight: (id: string) => Promise<void>;
   clearAll: () => void;
 }
 
@@ -45,6 +51,7 @@ const INITIAL_STATE = {
   entries: [] as MealEntry[],
   goals: DEFAULT_GOALS,
   foods: [] as Food[],
+  weightEntries: [] as WeightEntry[],
   hydrated: false,
   hydrating: false,
   error: null as string | null,
@@ -95,6 +102,20 @@ function sortFoodsByName(foods: readonly Food[]): Food[] {
   return [...foods].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function rowToWeight(row: WeightRow): WeightEntry {
+  return {
+    id: row.id,
+    weightKg: Number(row.weight_kg),
+    bodyFatPct: row.body_fat_pct === null ? null : Number(row.body_fat_pct),
+    loggedAt: row.logged_at,
+    dayKey: row.day_key,
+  };
+}
+
+function sortWeightsNewestFirst(weights: readonly WeightEntry[]): WeightEntry[] {
+  return [...weights].sort((a, b) => b.loggedAt.localeCompare(a.loggedAt));
+}
+
 async function requireUserId(): Promise<string> {
   const { data, error } = await supabase.auth.getSession();
   if (error) throw new Error(error.message);
@@ -109,7 +130,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   hydrate: async (userId: string) => {
     set({ hydrating: true, error: null });
     try {
-      const [goalsRes, entriesRes, foodsRes] = await Promise.all([
+      const [goalsRes, entriesRes, foodsRes, weightsRes] = await Promise.all([
         supabase
           .from('goals')
           .select('*')
@@ -127,16 +148,23 @@ export const useAppStore = create<AppState>()((set, get) => ({
           .select('*')
           .eq('user_id', userId)
           .order('name', { ascending: true }),
+        supabase
+          .from('weight_entries')
+          .select('*')
+          .eq('user_id', userId)
+          .order('logged_at', { ascending: false }),
       ]);
 
       if (goalsRes.error) throw new Error(goalsRes.error.message);
       if (entriesRes.error) throw new Error(entriesRes.error.message);
       if (foodsRes.error) throw new Error(foodsRes.error.message);
+      if (weightsRes.error) throw new Error(weightsRes.error.message);
 
       set({
         goals: goalsRes.data ? rowToGoals(goalsRes.data) : DEFAULT_GOALS,
         entries: (entriesRes.data ?? []).map(rowToEntry),
         foods: (foodsRes.data ?? []).map(rowToFood),
+        weightEntries: (weightsRes.data ?? []).map(rowToWeight),
         hydrated: true,
         hydrating: false,
         error: null,
@@ -261,6 +289,39 @@ export const useAppStore = create<AppState>()((set, get) => ({
     set((state) => ({ foods: state.foods.filter((f) => f.id !== id) }));
   },
 
+  addWeight: async (input) => {
+    const userId = await requireUserId();
+    const now = new Date();
+    const { data, error } = await supabase
+      .from('weight_entries')
+      .insert({
+        user_id: userId,
+        weight_kg: input.weightKg,
+        body_fat_pct: input.bodyFatPct,
+        logged_at: now.toISOString(),
+        day_key: dayKey(now),
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error('Insert returned no row');
+
+    const entry = rowToWeight(data);
+    set((state) => ({
+      weightEntries: sortWeightsNewestFirst([entry, ...state.weightEntries]),
+    }));
+    return entry;
+  },
+
+  removeWeight: async (id) => {
+    const { error } = await supabase.from('weight_entries').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+    set((state) => ({
+      weightEntries: state.weightEntries.filter((w) => w.id !== id),
+    }));
+  },
+
   clearAll: () => set({ ...INITIAL_STATE }),
 }));
 
@@ -309,6 +370,19 @@ export function searchFoods(foods: readonly Food[], query: string): Food[] {
   const q = query.trim().toLowerCase();
   if (!q) return [...foods];
   return foods.filter((f) => f.name.toLowerCase().includes(q));
+}
+
+export function selectWeightHistory(
+  weightEntries: readonly WeightEntry[]
+): WeightEntry[] {
+  return [...weightEntries].sort((a, b) => b.loggedAt.localeCompare(a.loggedAt));
+}
+
+export function selectLatestWeight(
+  weightEntries: readonly WeightEntry[]
+): WeightEntry | null {
+  if (weightEntries.length === 0) return null;
+  return selectWeightHistory(weightEntries)[0];
 }
 
 export function selectHistory(entries: readonly MealEntry[]): HistoryDay[] {

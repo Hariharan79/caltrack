@@ -53,3 +53,13 @@ export interface NewFoodInput {
 }
 
 export type FoodUpdateInput = Partial<NewFoodInput>;
+
+export interface WeightEntry {
+  id: string;
+  weightKg: number;
+  bodyFatPct: number | null;
+  loggedAt: string;
+  dayKey: string;
+}
+
+export type NewWeightInput = Omit<WeightEntry, 'id' | 'loggedAt' | 'dayKey'>;
