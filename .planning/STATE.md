@@ -4,28 +4,35 @@
 
 ---
 
-## 🟢 Next action — Phase 15: Weight tracking + trend chart
+## 🟢 Next action — pick Phase 17 (barcode) or Phase 18 (calendar history)
 
-Phase 11 shipped + runtime-verified on 2026-04-13 (`9bb1b8f` / `293a746` / `f5c873a`). **Phase 11.5 is parked** because Nutritionix pulled their free tier — user applied for a FatSecret key instead. See **D-25** for the new API plan; Phase 11.5 resumes when the key arrives (user will raise the topic).
+Phase 15 shipped + runtime-verified on 2026-04-13 (`7fd7795`). 4 days of weights pre-seeded via Supabase MCP, user logged today's weight live, chart re-ranged, kill/reopen persisted. All 151 tests pass, tsc + lint clean.
 
-### Why Phase 15 next (not 11.5 / 12 / 13)
+**Phase 11.5 is still parked** on the FatSecret API key (see **D-25**). Phases 12/14/16 all depend on 11.5 transitively, so they're blocked too. That leaves Phase 17 and Phase 18 as the only unblocked v2 leaves.
 
-Phase 15 is the one in-progress leaf that only depends on Phase 10 (✅ done) and has zero coupling to the food-library / Nutritionix chain that's currently blocked. It's also self-contained: new table already exists (`public.weight_entries` from Phase 7), no new deps (`react-native-svg` ships with Expo), no existing feature rewrites. High ship confidence in one session.
+### Candidate A: Phase 17 — Barcode scanning (depends on Phase 11 ✅)
 
-Pulled forward from Phase 15's ROADMAP entry:
-- Store additions: `weightEntries: WeightEntry[]` state + `addWeight(input)` / `removeWeight(id)` async actions + `weightHistory` selector (most recent first). Load in `hydrate()` alongside entries/goals/foods.
-- Type: `WeightEntry` in `types/index.ts` — camelCase mirror of `public.weight_entries` row. Fields: `id`, `weightKg`, `bodyFatPct` (nullable), `loggedAt`, `dayKey`.
-- `lib/weight.ts` — validation helper like `lib/foodForm.ts`. Weight > 0, body fat % in [0, 100] or null.
-- `components/WeightLogSheet.tsx` — modal sheet for logging kg + optional body-fat %. Pattern: copy `AddMealSheet.tsx` structure.
-- `components/WeightChart.tsx` — minimal SVG line chart using `react-native-svg` (already in deps — verify with `grep react-native-svg package.json`). No new package. Simple line + dots, auto-ranged Y axis. Graceful empty state when < 2 entries.
-- Entry point: new section on **Profile tab** above the Food library button. Shows latest weight + "Log weight" button that opens the sheet.
-- Tests: weight store actions against the mocked-Supabase pattern in `__tests__/lib/store.test.ts`; `lib/weight.ts` validation; `WeightChart` renders with sample data (empty, 1 point, many points).
-- **Runtime verification (N-11):** log 3 weights over simulated dates → see trend chart render → kill/reopen app → data persists → delete one → persists. Use Supabase MCP to pre-seed multi-day data if you need a wider chart range to look at.
-- Commit: `feat(weight): log body weight and render trend chart`
+- Uses Open Food Facts (free, no API key) — independent of the FatSecret chain
+- New deps: `npx expo install expo-camera` (expo-barcode-scanner is deprecated)
+- Camera permission flow with a graceful denial path
+- Barcode → OFF lookup → pre-fill `FoodForm`; on miss → empty `FoodForm`
+- **Risk:** first native permission in this project + first external HTTP fetch; slightly higher unknowns than 18
+- **Commit:** `feat(foods): barcode scan to pre-fill food form`
 
-### Unblocks
+### Candidate B: Phase 18 — Calendar grid History (depends on Phase 10 ✅)
 
-Phase 15 done → Phase 16 (meal planning) becomes reachable and only waits on Phase 12 for its own dependency. Phase 18 (calendar history) is also unblocked but independent.
+- Pure UI rewrite of the History tab — replaces flat list with month-grid
+- Zero new deps, zero permissions, zero external APIs
+- Header with month navigation + "Today" jump; 7-col grid; cells colored by goal hit-rate (green/yellow/red/gray)
+- Tap a day → existing `HistoryDay` detail view
+- **Risk:** lowest — no native surface area, no new schema. Probably a one-session ship
+- **Commit:** `feat(history): calendar grid view`
+
+### Recommendation
+
+**Phase 18 first** — it's lower-risk, no package installs, and unblocks the brand-voice copy pass (Phase 19) without waiting on permissions or network. Phase 17 can slot in after, or even later if Phase 11.5 resumes first (barcode flow and FatSecret lookup share the "pre-fill FoodForm" code path, so doing them together might let us factor that once).
+
+But either is defensible — raise a preference and we'll go.
 
 ### Known gotchas (carry forward, read before touching anything)
 
@@ -36,7 +43,9 @@ Phase 15 done → Phase 16 (meal planning) becomes reachable and only waits on P
 - **RLS silence**: queries without an active session return zero rows, not an error. Check `useAppStore.getState().error` first when data is missing.
 - **day_key vs logged_at**: schema uses `day_key` (YYYY-MM-DD local) for bucketing. `lib/date.ts` already produces this.
 - **`TablesUpdate<'foods'>` import** — when adding typed update payloads, pull from `../types/db` not `@/types` (different files; the former is the Supabase-generated db types, the latter is the hand-written app types).
-- **Test supabase mocking pattern** — the chainable mock in `__tests__/lib/store.test.ts` uses a thenable `builder.then` so both `.single()` and bare `await supabase.from(...).select().eq(...)` both drain from the same `state.queue`. When adding a new test, enqueue results in the exact order the store will consume them. Also enqueue for the hydrate() parallel reads in goals / entries / foods / weight_entries order.
+- **Test supabase mocking pattern** — the chainable mock in `__tests__/lib/store.test.ts` uses a thenable `builder.then` so both `.single()` and bare `await supabase.from(...).select().eq(...)` both drain from the same `state.queue`. When adding a new test, enqueue results in the exact order the store will consume them. `hydrate()` now reads **goals / entries / foods / weight_entries** in that order — enqueue four responses (existing 2-response hydrate tests still pass because the mock falls back to `{ data: null, error: null }`, which maps safely to `[]`).
+- **`react-native-svg` was NOT pre-installed** despite the ROADMAP claiming "ships with Expo" — I installed it via `npx expo install react-native-svg` during Phase 15. Already whitelisted in `jest.config.js` transformIgnorePatterns, so component tests Just Work.
+- **Chart width** — `WeightChart` takes an explicit `width` prop because `<Svg>` needs numeric width. `profile.tsx` uses `onLayout` on the card to capture the available width, stored in state, and only renders the chart once width > 0.
 
 ---
 
@@ -45,7 +54,7 @@ Phase 15 done → Phase 16 (meal planning) becomes reachable and only waits on P
 - **Repo:** `/Users/hari7aran/Desktop/caltrack-autopilot-test`
 - **Supabase project:** `gjzonxmvfaokjpgfykrn.supabase.co` (MCP connected)
 - **Branch:** `main` (all work lives here; no feature branches this project)
-- **Last commit:** `f5c873a` — `docs(state): phase 11 verified — next up phase 11.5 nutritionix` (followed by a D-25 commit that swaps Nutritionix for FatSecret and re-routes to Phase 15 next)
+- **Last commit:** `7fd7795` — `feat(weight): log body weight and render trend chart`
 - **User mode:** interactive during the day, occasionally authorizes autonomous overnight work. See `~/.claude/projects/-Users-hari7aran-Desktop-caltrack-autopilot-test/memory/session_mode_overnight.md`.
 - **Read-before-edit hook:** this project has an aggressive PreToolUse hook that flags edits to files not read-in-session. It's noisy but edits still succeed. Just re-read and retry if needed.
 
@@ -81,10 +90,10 @@ Phase 15 done → Phase 16 (meal planning) becomes reachable and only waits on P
 - [ ] Phase 12 — Food-first logging flow with stepper (wires FatSecret)
 - [ ] Phase 13 — Bullshit detector (F-20)
 - [ ] Phase 14 — Edit entries in place
-- [ ] **Phase 15 — Weight tracking + trend chart** ← YOU ARE HERE (pulled forward because 11.5 is blocked)
-- [ ] Phase 16 — Meal planning
-- [ ] Phase 17 — Barcode scanning
-- [ ] Phase 18 — Calendar grid History
+- [x] Phase 15 — Weight tracking + trend chart (`7fd7795`, runtime-verified 2026-04-13)
+- [ ] Phase 16 — Meal planning (blocked: depends on 12 → 11.5)
+- [ ] Phase 17 — Barcode scanning ← unblocked (depends on 11 ✅, uses Open Food Facts, independent of FatSecret)
+- [ ] **Phase 18 — Calendar grid History** ← unblocked (depends on 10 ✅), recommended next
 - [ ] Phase 19 — Brand voice copy pass
 - [ ] Phase 20 — v2 verification + MORNING_SUMMARY_v2.md
 
@@ -92,8 +101,8 @@ Phase 15 done → Phase 16 (meal planning) becomes reachable and only waits on P
 
 | Check | Status |
 |---|---|
-| `npx tsc --noEmit` | ✅ clean (end of Phase 11) |
-| `npx jest` | ✅ 128/128 passing (end of Phase 11) |
+| `npx tsc --noEmit` | ✅ clean (end of Phase 15) |
+| `npx jest` | ✅ 151/151 passing (end of Phase 15; +23 new: 9 weight validation, 10 store weight actions/selectors, 4 chart render) |
 | `npx expo lint` | ✅ 0 errors, 0 warnings |
 | `lib/` coverage | ✅ (not re-measured this session — rerun `jest --coverage` if needed) |
 | Supabase MCP | ✅ connected, 20 tools available |
