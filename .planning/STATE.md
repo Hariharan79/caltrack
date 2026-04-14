@@ -67,7 +67,7 @@ Phase 14 (edit entries in place) and Phase 16 (meal planning) are still blocked 
 - **Repo:** `/Users/hari7aran/Desktop/caltrack-autopilot-test`
 - **Supabase project:** `gjzonxmvfaokjpgfykrn.supabase.co` (MCP connected)
 - **Branch:** `main` (all work lives here; no feature branches this project)
-- **Last commit:** `386d4ef` — `fix(auth): attach bearer to functions.invoke and wire appstate auto-refresh`
+- **Last commit:** `a9b223c` — `feat(barcode): scan to auto-populate foods`
 - **Edge function `food-lookup`** is deployed (version 1, JWT verification on). To redeploy after editing source files: re-bundle the inlined contents of `supabase/functions/food-lookup/index.ts` + `_shared/cors.ts` + `lib/foodNormalizers.ts` into a single string and call `mcp__supabase__deploy_edge_function` with `name: 'food-lookup'`. The split source files exist for editing/testing; the deployed bundle is one file to dodge cross-directory import resolution in the Edge runtime.
 - **Supabase secrets** has `USDA_FDC_API_KEY` set (project dashboard → Edge Functions → Secrets). Don't put it in `.env`. Function fails with a clear 500 if it's missing.
 - **User mode:** interactive during the day, occasionally authorizes autonomous overnight work. See `~/.claude/projects/-Users-hari7aran-Desktop-caltrack-autopilot-test/memory/session_mode_overnight.md`.
