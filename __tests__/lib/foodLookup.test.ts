@@ -6,18 +6,30 @@ type InvokeResult = {
 jest.mock('@/lib/supabase', () => {
   const state = {
     nextResult: null as InvokeResult | null,
-    calls: [] as Array<{ name: string; body: unknown }>,
+    calls: [] as Array<{ name: string; body: unknown; headers?: Record<string, string> }>,
+    session: { access_token: 'test-jwt' } as { access_token: string } | null,
   };
 
   return {
     __esModule: true,
     __state: state,
     supabase: {
+      auth: {
+        getSession: jest.fn(async () => ({
+          data: { session: state.session },
+          error: null,
+        })),
+      },
       functions: {
-        invoke: jest.fn(async (name: string, opts: { body: unknown }) => {
-          state.calls.push({ name, body: opts.body });
-          return state.nextResult ?? { data: null, error: null };
-        }),
+        invoke: jest.fn(
+          async (
+            name: string,
+            opts: { body: unknown; headers?: Record<string, string> }
+          ) => {
+            state.calls.push({ name, body: opts.body, headers: opts.headers });
+            return state.nextResult ?? { data: null, error: null };
+          }
+        ),
       },
     },
   };
@@ -29,7 +41,8 @@ import { searchByText, getByBarcode, type NormalizedFood } from '@/lib/foodLooku
 const mock = supabaseMock as unknown as {
   __state: {
     nextResult: InvokeResult | null;
-    calls: Array<{ name: string; body: unknown }>;
+    calls: Array<{ name: string; body: unknown; headers?: Record<string, string> }>;
+    session: { access_token: string } | null;
   };
 };
 
@@ -44,6 +57,7 @@ function lastCall() {
 beforeEach(() => {
   mock.__state.nextResult = null;
   mock.__state.calls = [];
+  mock.__state.session = { access_token: 'test-jwt' };
 });
 
 const SAMPLE_FOOD: NormalizedFood = {
@@ -106,6 +120,17 @@ describe('searchByText', () => {
   it('returns [] when results is missing from the response', async () => {
     setNext({ data: {}, error: null });
     expect(await searchByText('chicken')).toEqual([]);
+  });
+
+  it('attaches the bearer token from the session', async () => {
+    setNext({ data: { results: [] }, error: null });
+    await searchByText('chicken');
+    expect(lastCall().headers).toEqual({ Authorization: 'Bearer test-jwt' });
+  });
+
+  it('throws when no session is present', async () => {
+    mock.__state.session = null;
+    await expect(searchByText('chicken')).rejects.toThrow(/signed in/i);
   });
 });
 
