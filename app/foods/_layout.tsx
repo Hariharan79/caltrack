@@ -21,6 +21,7 @@ export default function FoodsLayout() {
       <Stack.Screen name="index" options={{ title: COPY.foods.library.title }} />
       <Stack.Screen name="new" options={{ title: COPY.foods.new.title }} />
       <Stack.Screen name="[id]" options={{ title: COPY.foods.edit.title }} />
+      <Stack.Screen name="scan" options={{ title: COPY.barcode.screenTitle }} />
     </Stack>
   );
 }

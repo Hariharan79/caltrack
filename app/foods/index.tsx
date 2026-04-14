@@ -30,15 +30,26 @@ export default function FoodsListScreen() {
         </Pressable>
       ),
       headerRight: () => (
-        <Pressable
-          onPress={() => router.push('/foods/new')}
-          accessibilityRole="button"
-          accessibilityLabel={COPY.foods.library.addLabel}
-          hitSlop={12}
-          testID="food-add"
-        >
-          <Text style={styles.headerAction}>{COPY.foods.library.addAction}</Text>
-        </Pressable>
+        <View style={styles.headerRightRow}>
+          <Pressable
+            onPress={() => router.push('/foods/scan')}
+            accessibilityRole="button"
+            accessibilityLabel={COPY.foods.library.scanLabel}
+            hitSlop={12}
+            testID="food-scan"
+          >
+            <Text style={styles.headerAction}>{COPY.foods.library.scanAction}</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/foods/new')}
+            accessibilityRole="button"
+            accessibilityLabel={COPY.foods.library.addLabel}
+            hitSlop={12}
+            testID="food-add"
+          >
+            <Text style={styles.headerAction}>{COPY.foods.library.addAction}</Text>
+          </Pressable>
+        </View>
       ),
     });
   }, [navigation, router]);
@@ -119,5 +130,10 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.md,
     fontWeight: TYPOGRAPHY.weight.semibold,
     paddingHorizontal: SPACING.sm,
+  },
+  headerRightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
   },
 });

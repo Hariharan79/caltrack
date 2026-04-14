@@ -265,3 +265,12 @@ Picked autonomously during overnight Phase 13 work. Alternative considered: 50% 
 Editing a `log_entries` row updates only that row. The `food_id` foreign key is preserved (not nulled), and the canonical `foods` row is NOT modified. Rationale: the entry is a snapshot of what the user actually ate; editing it shouldn't retroactively change the food template that other entries also point at. If the user wants to fix the food template, they go through the Foods library screen.
 
 Picked autonomously during overnight Phase 14 work.
+
+## D-32 — Phase 17 manual barcode entry is a first-class fallback
+
+The iOS simulator cannot scan real barcodes through the lens. Rather than ship a scanner that can only be tested on a physical device, Phase 17 ships with a "Enter barcode manually" link on every state of the scan screen. The manual input calls the exact same `lookupFood({ barcode })` path as a real scan. This:
+- Unblocks sim verification for N-11.
+- Provides a permanent accessibility fallback for users with broken cameras or unusual package surfaces.
+- Costs almost nothing — one numeric input and one button.
+
+Picked autonomously during overnight Phase 17 work. Alternative considered: mock the camera entirely (rejected — the real scanner is the happy path on a device). Alternative 2: ship scanner-only and defer verification (rejected — N-11 requires runtime verification before done).

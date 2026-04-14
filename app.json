@@ -25,7 +25,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-system-ui"
+      "expo-system-ui",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow caltrack to scan barcodes on food packages."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

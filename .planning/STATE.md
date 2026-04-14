@@ -12,11 +12,17 @@ Phase 14 (F-14 edit entries in place) shipped earlier overnight. Phase 13 (F-20 
 
 ---
 
-## 🟢 Next action — runtime-verify Phases 13 + 14 + 19, then pick Phase 16 (meal planning) or Phase 17 (barcode scan)
+## 🟢 Next action — runtime-verify Phases 13 + 14 + 17 + 19, then pick Phase 16 (meal planning) or Phase 20 (v2 verification)
 
-Phase 19 is complete in code but **not runtime-verified**. Morning verification: (1) open every screen, confirm no stale strings, no exclamation marks, all empty states read in the new voice, (2) trigger an alert (delete a meal, save a malformed goal) and confirm error titles read "Couldn't save goals." etc., (3) re-verify Phases 13/14 while you're at it.
+Phase 17 (barcode scanning) shipped overnight. Since the iOS simulator cannot scan real barcodes through the lens (camera is a still image in Expo Go sim), **D-32** was taken: the scan screen ships with a "Enter barcode manually" link on every state. Morning verification path: open Foods library → tap Scan → permission-denied state appears → tap "Enter barcode manually" → type `3017620422003` (Nutella) → tap "Look up" → confirm OFF lookup round-trips into a pre-filled FoodForm → save → confirm new row in your foods library.
 
-Remaining v2 phases: **16, 17, 20**. Next logical pick once runtime verifications land: Phase 17 (barcode scan) — one-screen feature, reuses the Phase 12 stepper UX. Phase 16 (meal planning) is larger.
+Phase 19 is also complete in code but **not runtime-verified**. Morning verification: (1) open every screen, confirm no stale strings, no exclamation marks, all empty states read in the new voice, (2) trigger an alert (delete a meal, save a malformed goal) and confirm error titles read "Couldn't save goals." etc., (3) re-verify Phases 13/14/17 while you're at it.
+
+Remaining v2 phases: **16, 20**. Phase 16 (meal planning) is the larger remaining feature; Phase 20 is verification + MORNING_SUMMARY_v2.md.
+
+### Phase 17 runtime verification
+
+Manual barcode entry path built for sim testing (sim camera cannot scan real barcodes). Before marking done, enter an EAN-13 like `3017620422003` (Nutella) and confirm the OFF lookup round-trips into a new food. Also verify: permission-denied state shows manual link, manual input rejects non-numeric input, no-match state shows fallback button, error state has a retry. Full happy path should be: Foods tab → Scan button in header → manual link → type barcode → Look up → pre-filled form → Save → appears in library.
 
 Phase 12 verified end-to-end on 2026-04-14 after a JWT-algorithm triage that produced **D-28** (see DECISIONS.md). `food-lookup` now ships with `verify_jwt:false` because the project's auth mints ES256 user tokens while the function gateway's JWT verification is still pinned to HS256 and 401s every real user token. `lib/foodLookup.ts` also switched from `supabase.functions.invoke` to raw `fetch` for deterministic header handling. 229/229 jest, tsc + lint clean.
 
@@ -101,7 +107,7 @@ Phase 14 (edit entries in place) and Phase 16 (meal planning) are still blocked 
 - [x] Phase 14 — Edit entries in place (shipped overnight 2026-04-14, **runtime verification deferred** — static checks only)
 - [x] Phase 15 — Weight tracking + trend chart (`7fd7795`, runtime-verified 2026-04-13)
 - [ ] Phase 16 — Meal planning (blocked: depends on 12)
-- [ ] Phase 17 — Barcode scanning (unblocked — depends only on `lib/foodLookup.ts` ✅ + `expo-camera` install)
+- [x] Phase 17 — Barcode scanning (shipped overnight 2026-04-14, **runtime verification deferred** — static checks only, manual entry fallback provided per D-32)
 - [x] Phase 18 — Calendar grid History (`c7e7575`, runtime-verified 2026-04-13)
 - [x] Phase 19 — Brand voice copy pass (`80a508f`, shipped overnight 2026-04-14, **runtime verification deferred** — static checks only)
 - [ ] Phase 20 — v2 verification + MORNING_SUMMARY_v2.md
@@ -111,7 +117,7 @@ Phase 14 (edit entries in place) and Phase 16 (meal planning) are still blocked 
 | Check | Status |
 |---|---|
 | `npx tsc --noEmit` | ✅ clean (end of Phase 19 overnight) |
-| `npx jest` | ✅ 266/266 passing (+5 COPY table smoke tests from Phase 19) |
+| `npx jest` | ✅ 272/272 passing (+6 ScanFoodScreen tests from Phase 17) |
 | `npx expo lint` | ✅ 0 errors, 0 warnings |
 | `food-lookup` edge function | ✅ deployed v3 with `verify_jwt:false` (D-28). USDA text search + OFF barcode lookup verified end-to-end live 2026-04-14. |
 | `lib/` coverage | ✅ (not re-measured this session — rerun `jest --coverage` if needed) |
