@@ -250,3 +250,12 @@ Decision: **deploy `food-lookup` with `verify_jwt:false`** (v3, 2026-04-14). Rat
 ### Revisit trigger
 
 If this project ever becomes multi-user, or if Supabase's Edge Function gateway gains ES256 / JWKS verification for the existing project, flip `verify_jwt` back to `true` on the next deploy and verify with a curl-without-bearer attempt (which should return 401 again).
+
+## D-29 — Phase 13 severity bucket cutoffs
+
+`checkMacroSanity` uses these severity buckets:
+- `ok` if `|delta| <= max(25 kcal, 0.15 × claimedKcal)`
+- `mild` if delta ratio in `(tolerance, 0.30]`
+- `blatant` if delta ratio `> 0.30`
+
+Picked autonomously during overnight Phase 13 work. Alternative considered: 50% blatant cutoff (less aggressive). Tunable later when we have real data.

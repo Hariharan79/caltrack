@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import type { MealEntry } from '@/types';
 import { formatTime } from '@/lib/date';
+import { checkMacroSanity } from '@/lib/nutrition';
 
 interface EntryRowProps {
   entry: MealEntry;
@@ -16,12 +17,31 @@ export function EntryRow({ entry, onDelete, showTime = true }: EntryRowProps) {
   if (entry.fatG != null) macros.push(`${Math.round(entry.fatG)}F`);
   const macroLine = macros.join(' · ');
 
+  const sanity = checkMacroSanity({
+    calories: entry.calories,
+    proteinG: entry.proteinG,
+    carbsG: entry.carbsG,
+    fatG: entry.fatG,
+  });
+  const showBlatantBadge = sanity.severity === 'blatant';
+
   return (
     <View style={styles.row} testID={`entry-row-${entry.id}`}>
       <View style={styles.left}>
-        <Text style={styles.name} numberOfLines={1}>
-          {entry.name}
-        </Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.name} numberOfLines={1}>
+            {entry.name}
+          </Text>
+          {showBlatantBadge ? (
+            <Text
+              style={styles.bullshitBadge}
+              accessibilityLabel="Macros don't match calories"
+              testID={`entry-badge-${entry.id}`}
+            >
+              {'\u26A0'}
+            </Text>
+          ) : null}
+        </View>
         <Text style={styles.meta}>
           {showTime ? `${formatTime(entry.loggedAt)}` : ''}
           {showTime && macroLine ? ' · ' : ''}
@@ -65,10 +85,21 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
   name: {
     color: COLORS.text,
     fontSize: TYPOGRAPHY.size.md,
     fontWeight: TYPOGRAPHY.weight.semibold,
+    flexShrink: 1,
+  },
+  bullshitBadge: {
+    color: '#facc15',
+    fontSize: TYPOGRAPHY.size.md,
+    fontWeight: TYPOGRAPHY.weight.bold,
   },
   meta: {
     color: COLORS.textSecondary,

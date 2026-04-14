@@ -55,4 +55,29 @@ describe('EntriesList', () => {
     fireEvent.press(getByTestId('delete-e1'));
     expect(onDelete).toHaveBeenCalledWith('e1');
   });
+
+  it('renders the bullshit badge on rows with blatant macro mismatches', () => {
+    const blatantEntry: MealEntry = {
+      id: 'bad',
+      name: 'Diet lie',
+      calories: 200,
+      proteinG: 125,
+      carbsG: 0,
+      fatG: 0,
+      loggedAt: '2026-04-13T09:00:00.000Z',
+      dayKey: '2026-04-13',
+      foodId: null,
+      servings: 1,
+    };
+    const { getByTestId } = render(<EntriesList entries={[blatantEntry]} />);
+    expect(getByTestId('entry-badge-bad')).toBeTruthy();
+  });
+
+  it('does not render the bullshit badge on sane rows', () => {
+    const { queryByTestId } = render(<EntriesList entries={sample} />);
+    // Eggs: 14P 2C 14F = 56+8+126 = 190 vs claimed 200 → ok.
+    expect(queryByTestId('entry-badge-e1')).toBeNull();
+    // Toast: macros all null → ok.
+    expect(queryByTestId('entry-badge-e2')).toBeNull();
+  });
 });

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 
-import { COLORS, SPACING } from '@/constants/theme';
+import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { TextField } from './TextField';
 import { PrimaryButton } from './PrimaryButton';
 import {
@@ -9,7 +9,11 @@ import {
   validateFoodDraft,
   type FoodDraft,
 } from '@/lib/foodForm';
+import { checkMacroSanity } from '@/lib/nutrition';
 import type { NewFoodInput } from '@/types';
+
+const MILD_WARNING_BG = '#facc15';
+const BLATANT_WARNING_BG = '#ef4444';
 
 interface FoodFormProps {
   initial?: FoodDraft;
@@ -26,6 +30,27 @@ export function FoodForm({ initial, submitLabel, onSubmit, onDelete }: FoodFormP
 
   const validation = useMemo(() => validateFoodDraft(draft), [draft]);
   const visibleErrors = submitted ? validation.errors : {};
+
+  const sanity = useMemo(() => {
+    const kcalNum = Number(draft.kcalPerServing);
+    if (!Number.isFinite(kcalNum) || kcalNum <= 0) return null;
+    const parseMacro = (raw: string): number | null => {
+      if (raw.trim() === '') return null;
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return null;
+      return n;
+    };
+    const proteinG = parseMacro(draft.proteinGPerServing);
+    const carbsG = parseMacro(draft.carbsGPerServing);
+    const fatG = parseMacro(draft.fatGPerServing);
+    if (proteinG == null && carbsG == null && fatG == null) return null;
+    return checkMacroSanity({ calories: kcalNum, proteinG, carbsG, fatG });
+  }, [
+    draft.kcalPerServing,
+    draft.proteinGPerServing,
+    draft.carbsGPerServing,
+    draft.fatGPerServing,
+  ]);
 
   const update = (key: keyof FoodDraft, value: string) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -122,6 +147,24 @@ export function FoodForm({ initial, submitLabel, onSubmit, onDelete }: FoodFormP
         </View>
       </View>
 
+      {sanity && !sanity.ok ? (
+        <View
+          style={[
+            styles.sanityChip,
+            sanity.severity === 'blatant'
+              ? styles.sanityChipBlatant
+              : styles.sanityChipMild,
+          ]}
+          testID={`food-sanity-${sanity.severity}`}
+        >
+          <Text style={styles.sanityText}>
+            {sanity.severity === 'blatant'
+              ? `These macros don't add up. Implied ${Math.round(sanity.impliedKcal)} kcal.`
+              : `Numbers look off — implied ${Math.round(sanity.impliedKcal)} kcal from macros.`}
+          </Text>
+        </View>
+      ) : null}
+
       <PrimaryButton
         label={submitLabel}
         onPress={handleSubmit}
@@ -164,5 +207,22 @@ const styles = StyleSheet.create({
   },
   delete: {
     marginTop: SPACING.xl,
+  },
+  sanityChip: {
+    marginTop: SPACING.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.md,
+  },
+  sanityChipMild: {
+    backgroundColor: MILD_WARNING_BG,
+  },
+  sanityChipBlatant: {
+    backgroundColor: BLATANT_WARNING_BG,
+  },
+  sanityText: {
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: TYPOGRAPHY.weight.medium,
   },
 });

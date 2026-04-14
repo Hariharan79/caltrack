@@ -1,6 +1,14 @@
 # Session State
 
-> **For future-me opening this repo in a fresh session:** read this file first, then skim `DECISIONS.md` (especially D-14..D-23), then `ROADMAP.md`, then `git log --oneline -8`. That's enough to resume without asking the user anything.
+> **For future-me opening this repo in a fresh session:** read this file first, then skim `DECISIONS.md` (especially D-14..D-23, D-29), then `ROADMAP.md`, then `git log --oneline -8`. That's enough to resume without asking the user anything.
+
+---
+
+## 🟡 Phase 13 shipped (unverified) — 2026-04-14 overnight
+
+Phase 13 (F-20 bullshit detector) landed in a single commit during autonomous overnight mode. `lib/nutrition.ts` exposes pure `kcalFromMacros` + `checkMacroSanity`, wired into `FoodForm` (inline chip) and `EntryRow` (⚠ badge on blatant). Severity cutoffs locked in D-29. 254/254 jest, tsc + lint clean. **Runtime verification deferred to morning** — no iOS simulator run tonight.
+
+Phases 13/14/19 shipped overnight without runtime verification — verify in sim before marking done per N-11.
 
 ---
 
@@ -85,7 +93,7 @@ Phase 14 (edit entries in place) and Phase 16 (meal planning) are still blocked 
 - [x] Phase 11 — Foods table CRUD + library UI (`9bb1b8f`, runtime-verified 2026-04-13)
 - [x] Phase 11.5 — Food-lookup edge function (USDA + OFF) (`abe7d16`, smoke-tested 2026-04-13, see **D-27**)
 - [x] Phase 12 — Food-first logging flow with stepper (`fbb2921` + `386d4ef` auth fix + D-28 verify_jwt:false redeploy, fully runtime-verified 2026-04-14)
-- [ ] Phase 13 — Bullshit detector (F-20) (independently unblocked since Phase 11)
+- [x] Phase 13 — Bullshit detector (F-20) (shipped overnight 2026-04-14, **runtime verification deferred** — static checks only)
 - [ ] Phase 14 — Edit entries in place (blocked: depends on 12)
 - [x] Phase 15 — Weight tracking + trend chart (`7fd7795`, runtime-verified 2026-04-13)
 - [ ] Phase 16 — Meal planning (blocked: depends on 12)
@@ -98,8 +106,8 @@ Phase 14 (edit entries in place) and Phase 16 (meal planning) are still blocked 
 
 | Check | Status |
 |---|---|
-| `npx tsc --noEmit` | ✅ clean (end of Phase 12 verification) |
-| `npx jest` | ✅ 229/229 passing (foodLookup suite rewritten to mock `fetch` instead of `functions.invoke`, +4 session-refresh tests) |
+| `npx tsc --noEmit` | ✅ clean (end of Phase 13 overnight) |
+| `npx jest` | ✅ 254/254 passing (+23 nutrition unit tests, +2 EntryRow badge tests in EntriesList suite) |
 | `npx expo lint` | ✅ 0 errors, 0 warnings |
 | `food-lookup` edge function | ✅ deployed v3 with `verify_jwt:false` (D-28). USDA text search + OFF barcode lookup verified end-to-end live 2026-04-14. |
 | `lib/` coverage | ✅ (not re-measured this session — rerun `jest --coverage` if needed) |
