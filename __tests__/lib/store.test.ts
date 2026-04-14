@@ -229,6 +229,102 @@ describe('useAppStore.removeEntry', () => {
   });
 });
 
+describe('useAppStore.updateEntry', () => {
+  const baseRow = {
+    id: 'row-1',
+    user_id: 'user-1',
+    name: 'Oats',
+    kcal: 320,
+    protein_g: 12,
+    carbs_g: 55,
+    fat_g: 6,
+    logged_at: '2026-04-13T08:00:00.000Z',
+    day_key: '2026-04-13',
+    food_id: 'food-1',
+    meal_type: null,
+    status: 'eaten',
+    servings: 1,
+    created_at: '2026-04-13T08:00:00.000Z',
+    updated_at: '2026-04-13T08:00:00.000Z',
+  };
+
+  const localEntry: MealEntry = {
+    id: 'row-1',
+    name: 'Oats',
+    calories: 320,
+    proteinG: 12,
+    carbsG: 55,
+    fatG: 6,
+    loggedAt: '2026-04-13T08:00:00.000Z',
+    dayKey: '2026-04-13',
+    foodId: 'food-1',
+    servings: 1,
+  };
+
+  it('updates via supabase and replaces the entry in local state immutably', async () => {
+    const originalEntries = [localEntry];
+    useAppStore.setState({ entries: originalEntries });
+
+    enqueue({
+      data: { ...baseRow, name: 'Oats w/ berries', kcal: 380, protein_g: 14 },
+      error: null,
+    });
+
+    const updated = await useAppStore.getState().updateEntry('row-1', {
+      name: 'Oats w/ berries',
+      calories: 380,
+      proteinG: 14,
+    });
+
+    expect(updated.name).toBe('Oats w/ berries');
+    expect(updated.calories).toBe(380);
+
+    const stateEntries = useAppStore.getState().entries;
+    expect(stateEntries).toHaveLength(1);
+    expect(stateEntries[0].name).toBe('Oats w/ berries');
+    expect(stateEntries[0].calories).toBe(380);
+    expect(stateEntries[0].foodId).toBe('food-1'); // food_id link preserved (D-30)
+
+    // Immutability: new array reference, original entry object untouched.
+    expect(stateEntries).not.toBe(originalEntries);
+    expect(stateEntries[0]).not.toBe(localEntry);
+    expect(localEntry.name).toBe('Oats');
+    expect(localEntry.calories).toBe(320);
+
+    // Only patched fields go into the db payload.
+    const updateCall = mock.__state.calls.find((c) => c.method === 'update');
+    expect(updateCall).toBeDefined();
+    const payload = updateCall!.args[0] as Record<string, unknown>;
+    expect(payload.name).toBe('Oats w/ berries');
+    expect(payload.kcal).toBe(380);
+    expect(payload.protein_g).toBe(14);
+    expect('carbs_g' in payload).toBe(false);
+    expect('fat_g' in payload).toBe(false);
+    expect('food_id' in payload).toBe(false);
+  });
+
+  it('leaves local state untouched when supabase errors', async () => {
+    useAppStore.setState({ entries: [localEntry] });
+    enqueue({ data: null, error: { message: 'rls denied' } });
+
+    await expect(
+      useAppStore.getState().updateEntry('row-1', { calories: 500 })
+    ).rejects.toThrow('rls denied');
+
+    const stateEntries = useAppStore.getState().entries;
+    expect(stateEntries).toHaveLength(1);
+    expect(stateEntries[0].calories).toBe(320);
+  });
+
+  it('throws when the update returns no row', async () => {
+    useAppStore.setState({ entries: [localEntry] });
+    enqueue({ data: null, error: null });
+    await expect(
+      useAppStore.getState().updateEntry('row-1', { calories: 500 })
+    ).rejects.toThrow(/no row/i);
+  });
+});
+
 describe('useAppStore.updateGoals', () => {
   it('inserts a new log-style row with merged goals and updates local state', async () => {
     signedIn('user-1');

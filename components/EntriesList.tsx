@@ -6,10 +6,16 @@ import { EntryRow } from './EntryRow';
 interface EntriesListProps {
   entries: readonly MealEntry[];
   onDelete?: (id: string) => void;
+  onPressEntry?: (entry: MealEntry) => void;
   emptyText?: string;
 }
 
-export function EntriesList({ entries, onDelete, emptyText = 'No meals yet' }: EntriesListProps) {
+export function EntriesList({
+  entries,
+  onDelete,
+  onPressEntry,
+  emptyText = 'No meals yet',
+}: EntriesListProps) {
   if (entries.length === 0) {
     return (
       <View style={styles.empty} testID="entries-empty">
@@ -21,7 +27,12 @@ export function EntriesList({ entries, onDelete, emptyText = 'No meals yet' }: E
   return (
     <View testID="entries-list">
       {entries.map((entry) => (
-        <EntryRow key={entry.id} entry={entry} onDelete={onDelete} />
+        <EntryRow
+          key={entry.id}
+          entry={entry}
+          onDelete={onDelete}
+          onPress={onPressEntry}
+        />
       ))}
     </View>
   );

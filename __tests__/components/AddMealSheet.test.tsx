@@ -8,6 +8,7 @@ jest.mock('@/lib/foodLookup', () => ({
 }));
 
 const mockAddEntry = jest.fn();
+const mockUpdateEntry = jest.fn();
 const mockUpsertFoodFromLookup = jest.fn();
 
 interface MockFood {
@@ -19,6 +20,7 @@ interface MockState {
   foods: MockFood[];
   entries: unknown[];
   addEntry: typeof mockAddEntry;
+  updateEntry: typeof mockUpdateEntry;
   upsertFoodFromLookup: typeof mockUpsertFoodFromLookup;
 }
 
@@ -26,6 +28,7 @@ const mockState: MockState = {
   foods: [],
   entries: [],
   addEntry: mockAddEntry,
+  updateEntry: mockUpdateEntry,
   upsertFoodFromLookup: mockUpsertFoodFromLookup,
 };
 
@@ -40,10 +43,12 @@ jest.mock('@/lib/store', () => ({
 }));
 
 import { AddMealSheet, validateDraft } from '@/components/AddMealSheet';
+import type { MealEntry } from '@/types';
 
 beforeEach(() => {
   mockSearchByText.mockReset();
   mockAddEntry.mockReset();
+  mockUpdateEntry.mockReset();
   mockUpsertFoodFromLookup.mockReset();
   mockState.foods = [];
   mockState.entries = [];
@@ -139,6 +144,66 @@ describe('AddMealSheet — Quick add tab', () => {
       fatG: null,
     });
     await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+});
+
+describe('AddMealSheet — edit mode', () => {
+  const initialEntry: MealEntry = {
+    id: 'entry-1',
+    name: 'Oats',
+    calories: 320,
+    proteinG: 12,
+    carbsG: 55,
+    fatG: 6,
+    loggedAt: '2026-04-13T08:00:00.000Z',
+    dayKey: '2026-04-13',
+    foodId: 'food-1',
+    servings: 1,
+  };
+
+  it('prefills the Quick add form from initialEntry and shows Edit meal title', () => {
+    const { getByTestId, getByText } = render(
+      <AddMealSheet visible={true} onClose={jest.fn()} initialEntry={initialEntry} />
+    );
+    expect(getByText('Edit meal')).toBeTruthy();
+    expect(getByTestId('meal-name').props.value).toBe('Oats');
+    expect(getByTestId('meal-calories').props.value).toBe('320');
+    expect(getByTestId('meal-protein').props.value).toBe('12');
+    expect(getByTestId('meal-carbs').props.value).toBe('55');
+    expect(getByTestId('meal-fat').props.value).toBe('6');
+  });
+
+  it('save calls updateEntry with patched fields, not addEntry', async () => {
+    mockUpdateEntry.mockResolvedValue({ ...initialEntry, calories: 400 });
+    const onClose = jest.fn();
+    const { getByTestId } = render(
+      <AddMealSheet visible={true} onClose={onClose} initialEntry={initialEntry} />
+    );
+
+    fireEvent.changeText(getByTestId('meal-calories'), '400');
+    fireEvent.press(getByTestId('meal-save'));
+
+    await waitFor(() => expect(mockUpdateEntry).toHaveBeenCalled());
+    expect(mockAddEntry).not.toHaveBeenCalled();
+    expect(mockUpdateEntry).toHaveBeenCalledWith('entry-1', {
+      name: 'Oats',
+      calories: 400,
+      proteinG: 12,
+      carbsG: 55,
+      fatG: 6,
+    });
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it('cancel closes without calling store actions', () => {
+    const onClose = jest.fn();
+    const { getByLabelText } = render(
+      <AddMealSheet visible={true} onClose={onClose} initialEntry={initialEntry} />
+    );
+    fireEvent.press(getByLabelText('Cancel'));
+    expect(onClose).toHaveBeenCalled();
+    expect(mockUpdateEntry).not.toHaveBeenCalled();
+    expect(mockAddEntry).not.toHaveBeenCalled();
   });
 });
 

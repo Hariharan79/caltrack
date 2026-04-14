@@ -4,15 +4,19 @@
 
 ---
 
-## 🟡 Phase 13 shipped (unverified) — 2026-04-14 overnight
+## 🟡 Phase 14 shipped (unverified) — 2026-04-14 overnight
 
-Phase 13 (F-20 bullshit detector) landed in a single commit during autonomous overnight mode. `lib/nutrition.ts` exposes pure `kcalFromMacros` + `checkMacroSanity`, wired into `FoodForm` (inline chip) and `EntryRow` (⚠ badge on blatant). Severity cutoffs locked in D-29. 254/254 jest, tsc + lint clean. **Runtime verification deferred to morning** — no iOS simulator run tonight.
+Phase 14 (F-14 edit entries in place) landed in a single commit during autonomous overnight mode. `updateEntry(id, patch)` added to `lib/store.ts` with `TablesUpdate<'log_entries'>` typed patches. `AddMealSheet` now takes an `initialEntry?: MealEntry | null` prop and opens directly into Quick add pre-filled; tabs are hidden in edit mode. `EntryRow` gained an `onPress` prop (tap-to-edit); delete button preserved. Today screen owns `editingEntry` state. D-30 locks in "edit preserves food_id". 261/261 jest, tsc + lint clean. **Runtime verification deferred to morning** — no iOS simulator run tonight.
 
-Phases 13/14/19 shipped overnight without runtime verification — verify in sim before marking done per N-11.
+Phase 13 also shipped overnight without runtime verification (bullshit detector, `da3c946`). Phases 13/14 both still need sim verification before marking done per N-11.
 
 ---
 
-## 🟢 Next action — Phase 13 (bullshit detector, F-20) or Phase 17 (barcode scan)
+## 🟢 Next action — runtime-verify Phases 13 + 14, then pick Phase 17 (barcode scan) or Phase 19 (copy pass)
+
+Phase 14 is complete in code but **not runtime-verified**. Morning verification: (1) open the app, (2) tap an existing meal row on Today → sheet opens titled "Edit meal" with fields pre-filled, (3) change calories → save → totals and row update immediately, (4) cancel preserves the row, (5) FAB still opens fresh "Log meal". Also re-verify Phase 13: log a macro-inflated meal and confirm the ⚠ badge renders.
+
+Remaining v2 phases: **16, 17, 19, 20**. Next logical pick once 13/14 are sim-verified: Phase 17 (barcode scan) — one-screen feature, reuses the Phase 12 stepper UX. Phase 16 (meal planning) is larger. Phase 19 (copy pass) is cheap cleanup.
 
 Phase 12 verified end-to-end on 2026-04-14 after a JWT-algorithm triage that produced **D-28** (see DECISIONS.md). `food-lookup` now ships with `verify_jwt:false` because the project's auth mints ES256 user tokens while the function gateway's JWT verification is still pinned to HS256 and 401s every real user token. `lib/foodLookup.ts` also switched from `supabase.functions.invoke` to raw `fetch` for deterministic header handling. 229/229 jest, tsc + lint clean.
 
@@ -94,7 +98,7 @@ Phase 14 (edit entries in place) and Phase 16 (meal planning) are still blocked 
 - [x] Phase 11.5 — Food-lookup edge function (USDA + OFF) (`abe7d16`, smoke-tested 2026-04-13, see **D-27**)
 - [x] Phase 12 — Food-first logging flow with stepper (`fbb2921` + `386d4ef` auth fix + D-28 verify_jwt:false redeploy, fully runtime-verified 2026-04-14)
 - [x] Phase 13 — Bullshit detector (F-20) (shipped overnight 2026-04-14, **runtime verification deferred** — static checks only)
-- [ ] Phase 14 — Edit entries in place (blocked: depends on 12)
+- [x] Phase 14 — Edit entries in place (shipped overnight 2026-04-14, **runtime verification deferred** — static checks only)
 - [x] Phase 15 — Weight tracking + trend chart (`7fd7795`, runtime-verified 2026-04-13)
 - [ ] Phase 16 — Meal planning (blocked: depends on 12)
 - [ ] Phase 17 — Barcode scanning (unblocked — depends only on `lib/foodLookup.ts` ✅ + `expo-camera` install)
@@ -107,7 +111,7 @@ Phase 14 (edit entries in place) and Phase 16 (meal planning) are still blocked 
 | Check | Status |
 |---|---|
 | `npx tsc --noEmit` | ✅ clean (end of Phase 13 overnight) |
-| `npx jest` | ✅ 254/254 passing (+23 nutrition unit tests, +2 EntryRow badge tests in EntriesList suite) |
+| `npx jest` | ✅ 261/261 passing (+3 updateEntry store tests, +3 AddMealSheet edit-mode tests, +1 EntriesList onPressEntry test) |
 | `npx expo lint` | ✅ 0 errors, 0 warnings |
 | `food-lookup` edge function | ✅ deployed v3 with `verify_jwt:false` (D-28). USDA text search + OFF barcode lookup verified end-to-end live 2026-04-14. |
 | `lib/` coverage | ✅ (not re-measured this session — rerun `jest --coverage` if needed) |

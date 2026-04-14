@@ -56,6 +56,15 @@ describe('EntriesList', () => {
     expect(onDelete).toHaveBeenCalledWith('e1');
   });
 
+  it('forwards onPressEntry when a row is tapped', () => {
+    const onPressEntry = jest.fn();
+    const { getByTestId } = render(
+      <EntriesList entries={sample} onPressEntry={onPressEntry} />
+    );
+    fireEvent.press(getByTestId('entry-row-e1'));
+    expect(onPressEntry).toHaveBeenCalledWith(sample[0]);
+  });
+
   it('renders the bullshit badge on rows with blatant macro mismatches', () => {
     const blatantEntry: MealEntry = {
       id: 'bad',

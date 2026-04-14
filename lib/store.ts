@@ -32,6 +32,7 @@ export interface AppState {
   reset: () => void;
   addEntry: (input: NewMealInput) => Promise<MealEntry>;
   removeEntry: (id: string) => Promise<void>;
+  updateEntry: (id: string, patch: Partial<MealEntry>) => Promise<MealEntry>;
   updateGoals: (patch: Partial<Goals>) => Promise<void>;
   addFood: (input: NewFoodInput) => Promise<Food>;
   updateFood: (id: string, patch: FoodUpdateInput) => Promise<Food>;
@@ -215,6 +216,32 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const { error } = await supabase.from('log_entries').delete().eq('id', id);
     if (error) throw new Error(error.message);
     set((state) => ({ entries: state.entries.filter((e) => e.id !== id) }));
+  },
+
+  updateEntry: async (id, patch) => {
+    const dbPatch: TablesUpdate<'log_entries'> = {};
+    if (patch.name !== undefined) dbPatch.name = patch.name.trim();
+    if (patch.calories !== undefined) dbPatch.kcal = patch.calories;
+    if (patch.proteinG !== undefined) dbPatch.protein_g = patch.proteinG;
+    if (patch.carbsG !== undefined) dbPatch.carbs_g = patch.carbsG;
+    if (patch.fatG !== undefined) dbPatch.fat_g = patch.fatG;
+    if (patch.servings !== undefined) dbPatch.servings = patch.servings;
+
+    const { data, error } = await supabase
+      .from('log_entries')
+      .update(dbPatch)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error('Update returned no row');
+
+    const entry = rowToEntry(data);
+    set((state) => ({
+      entries: state.entries.map((e) => (e.id === id ? entry : e)),
+    }));
+    return entry;
   },
 
   updateGoals: async (patch) => {

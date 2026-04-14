@@ -18,7 +18,7 @@ import { Stepper } from './Stepper';
 import { useAppStore, searchFoods, selectRecentFoods } from '@/lib/store';
 import { searchByText } from '@/lib/foodLookup';
 import type { NormalizedFood } from '@/lib/foodNormalizers';
-import type { Food, NewMealInput } from '@/types';
+import type { Food, MealEntry, NewMealInput } from '@/types';
 
 type Tab = 'log' | 'quick';
 
@@ -29,6 +29,7 @@ type LogChoice =
 interface AddMealSheetProps {
   visible: boolean;
   onClose: () => void;
+  initialEntry?: MealEntry | null;
 }
 
 interface DraftState {
@@ -100,13 +101,26 @@ function scaleMacro(value: number | null, servings: number): number | null {
   return Math.round(value * servings * 10) / 10;
 }
 
-export function AddMealSheet({ visible, onClose }: AddMealSheetProps) {
+function entryToDraft(entry: MealEntry): DraftState {
+  return {
+    name: entry.name,
+    calories: String(entry.calories),
+    protein: entry.proteinG == null ? '' : String(entry.proteinG),
+    carbs: entry.carbsG == null ? '' : String(entry.carbsG),
+    fat: entry.fatG == null ? '' : String(entry.fatG),
+  };
+}
+
+export function AddMealSheet({ visible, onClose, initialEntry = null }: AddMealSheetProps) {
   const foods = useAppStore((s) => s.foods);
   const entries = useAppStore((s) => s.entries);
   const addEntry = useAppStore((s) => s.addEntry);
+  const updateEntry = useAppStore((s) => s.updateEntry);
   const upsertFoodFromLookup = useAppStore((s) => s.upsertFoodFromLookup);
 
-  const [tab, setTab] = useState<Tab>('log');
+  const isEdit = initialEntry != null;
+
+  const [tab, setTab] = useState<Tab>(isEdit ? 'quick' : 'log');
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [usdaResults, setUsdaResults] = useState<NormalizedFood[]>([]);
@@ -117,11 +131,13 @@ export function AddMealSheet({ visible, onClose }: AddMealSheetProps) {
   const [servings, setServings] = useState(1);
   const [submitting, setSubmitting] = useState(false);
 
-  const [draft, setDraft] = useState<DraftState>(EMPTY_DRAFT);
+  const [draft, setDraft] = useState<DraftState>(
+    initialEntry ? entryToDraft(initialEntry) : EMPTY_DRAFT
+  );
   const [draftSubmitted, setDraftSubmitted] = useState(false);
 
   const reset = useCallback(() => {
-    setTab('log');
+    setTab(isEdit ? 'quick' : 'log');
     setQuery('');
     setDebouncedQuery('');
     setUsdaResults([]);
@@ -130,9 +146,20 @@ export function AddMealSheet({ visible, onClose }: AddMealSheetProps) {
     setSelected(null);
     setServings(1);
     setSubmitting(false);
-    setDraft(EMPTY_DRAFT);
+    setDraft(initialEntry ? entryToDraft(initialEntry) : EMPTY_DRAFT);
     setDraftSubmitted(false);
-  }, []);
+  }, [isEdit, initialEntry]);
+
+  // Sync draft/tab when the entry we're editing changes (e.g. tapping a different row).
+  useEffect(() => {
+    if (!visible) return;
+    if (initialEntry) {
+      setTab('quick');
+      setDraft(entryToDraft(initialEntry));
+      setDraftSubmitted(false);
+      setSelected(null);
+    }
+  }, [visible, initialEntry]);
 
   // Debounce query → debouncedQuery
   useEffect(() => {
@@ -239,12 +266,22 @@ export function AddMealSheet({ visible, onClose }: AddMealSheetProps) {
     if (!draftValidation.parsed || submitting) return;
     setSubmitting(true);
     try {
-      await addEntry(draftValidation.parsed);
+      if (initialEntry) {
+        await updateEntry(initialEntry.id, {
+          name: draftValidation.parsed.name,
+          calories: draftValidation.parsed.calories,
+          proteinG: draftValidation.parsed.proteinG,
+          carbsG: draftValidation.parsed.carbsG,
+          fatG: draftValidation.parsed.fatG,
+        });
+      } else {
+        await addEntry(draftValidation.parsed);
+      }
       reset();
       onClose();
     } catch (err) {
       Alert.alert(
-        'Could not save meal',
+        initialEntry ? 'Could not update meal' : 'Could not save meal',
         err instanceof Error ? err.message : 'Unknown error'
       );
       setSubmitting(false);
@@ -272,26 +309,28 @@ export function AddMealSheet({ visible, onClose }: AddMealSheetProps) {
             >
               <Text style={styles.headerAction}>Cancel</Text>
             </Pressable>
-            <Text style={styles.title}>Log meal</Text>
+            <Text style={styles.title}>{isEdit ? 'Edit meal' : 'Log meal'}</Text>
             <View style={styles.headerSpacer} />
           </View>
 
-          <View style={styles.tabs}>
-            <TabButton
-              label="Log"
-              active={tab === 'log'}
-              onPress={() => setTab('log')}
-              testID="tab-log"
-            />
-            <TabButton
-              label="Quick add"
-              active={tab === 'quick'}
-              onPress={() => setTab('quick')}
-              testID="tab-quick"
-            />
-          </View>
+          {!isEdit ? (
+            <View style={styles.tabs}>
+              <TabButton
+                label="Log"
+                active={tab === 'log'}
+                onPress={() => setTab('log')}
+                testID="tab-log"
+              />
+              <TabButton
+                label="Quick add"
+                active={tab === 'quick'}
+                onPress={() => setTab('quick')}
+                testID="tab-quick"
+              />
+            </View>
+          ) : null}
 
-          {tab === 'log' ? (
+          {tab === 'log' && !isEdit ? (
             selected ? (
               <SelectedFoodView
                 selected={selected}
@@ -321,6 +360,7 @@ export function AddMealSheet({ visible, onClose }: AddMealSheetProps) {
               onUpdate={updateDraft}
               onSave={handleQuickSave}
               submitting={submitting}
+              isEdit={isEdit}
             />
           )}
         </View>
@@ -588,9 +628,12 @@ interface QuickAddViewProps {
   onUpdate: (key: keyof DraftState, value: string) => void;
   onSave: () => void;
   submitting: boolean;
+  isEdit: boolean;
 }
 
-function QuickAddView({ draft, errors, onUpdate, onSave, submitting }: QuickAddViewProps) {
+function QuickAddView({ draft, errors, onUpdate, onSave, submitting, isEdit }: QuickAddViewProps) {
+  const defaultLabel = isEdit ? 'Save changes' : 'Save meal';
+  const busyLabel = isEdit ? 'Saving…' : 'Saving…';
   return (
     <View style={styles.flex}>
       <ScrollView style={styles.flex} contentContainerStyle={styles.scrollContent}>
@@ -651,7 +694,7 @@ function QuickAddView({ draft, errors, onUpdate, onSave, submitting }: QuickAddV
 
       <View style={styles.footer}>
         <PrimaryButton
-          label={submitting ? 'Saving…' : 'Save meal'}
+          label={submitting ? busyLabel : defaultLabel}
           onPress={onSave}
           disabled={submitting}
           testID="meal-save"

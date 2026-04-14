@@ -259,3 +259,9 @@ If this project ever becomes multi-user, or if Supabase's Edge Function gateway 
 - `blatant` if delta ratio `> 0.30`
 
 Picked autonomously during overnight Phase 13 work. Alternative considered: 50% blatant cutoff (less aggressive). Tunable later when we have real data.
+
+## D-30 — Phase 14 edit preserves food_id link
+
+Editing a `log_entries` row updates only that row. The `food_id` foreign key is preserved (not nulled), and the canonical `foods` row is NOT modified. Rationale: the entry is a snapshot of what the user actually ate; editing it shouldn't retroactively change the food template that other entries also point at. If the user wants to fix the food template, they go through the Foods library screen.
+
+Picked autonomously during overnight Phase 14 work.

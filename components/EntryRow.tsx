@@ -7,10 +7,11 @@ import { checkMacroSanity } from '@/lib/nutrition';
 interface EntryRowProps {
   entry: MealEntry;
   onDelete?: (id: string) => void;
+  onPress?: (entry: MealEntry) => void;
   showTime?: boolean;
 }
 
-export function EntryRow({ entry, onDelete, showTime = true }: EntryRowProps) {
+export function EntryRow({ entry, onDelete, onPress, showTime = true }: EntryRowProps) {
   const macros: string[] = [];
   if (entry.proteinG != null) macros.push(`${Math.round(entry.proteinG)}P`);
   if (entry.carbsG != null) macros.push(`${Math.round(entry.carbsG)}C`);
@@ -25,8 +26,8 @@ export function EntryRow({ entry, onDelete, showTime = true }: EntryRowProps) {
   });
   const showBlatantBadge = sanity.severity === 'blatant';
 
-  return (
-    <View style={styles.row} testID={`entry-row-${entry.id}`}>
+  const inner = (
+    <>
       <View style={styles.left}>
         <View style={styles.nameRow}>
           <Text style={styles.name} numberOfLines={1}>
@@ -64,6 +65,26 @@ export function EntryRow({ entry, onDelete, showTime = true }: EntryRowProps) {
           <Text style={styles.deleteText}>Delete</Text>
         </Pressable>
       ) : null}
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable
+        onPress={() => onPress(entry)}
+        style={styles.row}
+        accessibilityRole="button"
+        accessibilityLabel={`Edit ${entry.name}`}
+        testID={`entry-row-${entry.id}`}
+      >
+        {inner}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={styles.row} testID={`entry-row-${entry.id}`}>
+      {inner}
     </View>
   );
 }

@@ -11,6 +11,7 @@ import {
 import { TotalsCard } from '@/components/TotalsCard';
 import { EntriesList } from '@/components/EntriesList';
 import { AddMealSheet } from '@/components/AddMealSheet';
+import type { MealEntry } from '@/types';
 
 const TAB_BAR_PADDING = 96;
 
@@ -25,6 +26,7 @@ function todayHeaderLabel(now: Date = new Date()): string {
 export default function TodayScreen() {
   const insets = useSafeAreaInsets();
   const [sheetVisible, setSheetVisible] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<MealEntry | null>(null);
 
   const goals = useAppStore((s) => s.goals);
   const rawEntries = useAppStore((s) => s.entries);
@@ -39,6 +41,16 @@ export default function TodayScreen() {
     } catch (err) {
       Alert.alert('Could not delete meal', err instanceof Error ? err.message : 'Unknown error');
     }
+  };
+
+  const handlePressEntry = (entry: MealEntry) => {
+    setEditingEntry(entry);
+    setSheetVisible(true);
+  };
+
+  const handleCloseSheet = () => {
+    setSheetVisible(false);
+    setEditingEntry(null);
   };
 
   return (
@@ -58,11 +70,19 @@ export default function TodayScreen() {
         <TotalsCard totals={totals} goals={goals} />
 
         <Text style={styles.sectionTitle}>Meals</Text>
-        <EntriesList entries={entries} onDelete={handleRemoveEntry} emptyText="Tap + to log your first meal" />
+        <EntriesList
+          entries={entries}
+          onDelete={handleRemoveEntry}
+          onPressEntry={handlePressEntry}
+          emptyText="Tap + to log your first meal"
+        />
       </ScrollView>
 
       <Pressable
-        onPress={() => setSheetVisible(true)}
+        onPress={() => {
+          setEditingEntry(null);
+          setSheetVisible(true);
+        }}
         style={[styles.fab, { bottom: TAB_BAR_PADDING + insets.bottom - 32 }]}
         accessibilityRole="button"
         accessibilityLabel="Log a meal"
@@ -71,7 +91,11 @@ export default function TodayScreen() {
         <Plus color={COLORS.text} size={28} weight="bold" />
       </Pressable>
 
-      <AddMealSheet visible={sheetVisible} onClose={() => setSheetVisible(false)} />
+      <AddMealSheet
+        visible={sheetVisible}
+        onClose={handleCloseSheet}
+        initialEntry={editingEntry}
+      />
     </View>
   );
 }
