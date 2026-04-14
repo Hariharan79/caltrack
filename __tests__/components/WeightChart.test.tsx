@@ -19,7 +19,7 @@ describe('WeightChart', () => {
     const { getByText } = render(
       <WeightChart entries={[]} width={320} testID="chart" />
     );
-    expect(getByText('No weight logged yet')).toBeTruthy();
+    expect(getByText('No weight logged yet.')).toBeTruthy();
   });
 
   it('renders a single data point with latest label', () => {

@@ -10,6 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COPY } from '@/lib/copy';
 import { useAppStore, selectLatestWeight } from '@/lib/store';
 import { TextField } from '@/components/TextField';
 import { PrimaryButton } from '@/components/PrimaryButton';
@@ -51,8 +52,8 @@ export default function ProfileScreen() {
       await addWeight(input);
     } catch (err) {
       Alert.alert(
-        'Could not save weight',
-        err instanceof Error ? err.message : 'Unknown error'
+        COPY.profile.weight.saveFailedTitle,
+        err instanceof Error ? err.message : COPY.errors.unknown
       );
     }
   };
@@ -79,24 +80,24 @@ export default function ProfileScreen() {
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 1500);
     } catch (err) {
-      Alert.alert('Could not save goals', err instanceof Error ? err.message : 'Unknown error');
+      Alert.alert(COPY.profile.goals.saveFailedTitle, err instanceof Error ? err.message : COPY.errors.unknown);
     } finally {
       setSaving(false);
     }
   };
 
   const handleSignOut = () => {
-    Alert.alert('Sign out?', 'Your data stays on the server.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(COPY.profile.dangerZone.signOutTitle, COPY.profile.dangerZone.signOutBody, [
+      { text: COPY.profile.dangerZone.signOutCancel, style: 'cancel' },
       {
-        text: 'Sign out',
+        text: COPY.profile.dangerZone.signOutConfirm,
         style: 'destructive',
         onPress: async () => {
           setSigningOut(true);
           try {
             await signOut();
           } catch (err) {
-            Alert.alert('Sign out failed', err instanceof Error ? err.message : 'Unknown error');
+            Alert.alert(COPY.profile.dangerZone.signOutFailedTitle, err instanceof Error ? err.message : COPY.errors.unknown);
           } finally {
             setSigningOut(false);
           }
@@ -115,13 +116,13 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.heading}>Profile</Text>
-          <Text style={styles.sub}>Daily nutrition goals</Text>
+          <Text style={styles.heading}>{COPY.profile.heading}</Text>
+          <Text style={styles.sub}>{COPY.profile.subtitle}</Text>
         </View>
 
         <View style={styles.weightCard} onLayout={onChartLayout}>
           <View style={styles.weightHeader}>
-            <Text style={styles.sectionLabel}>Weight</Text>
+            <Text style={styles.sectionLabel}>{COPY.profile.sectionWeight}</Text>
             {latestWeight ? (
               <Text style={styles.weightLatest} testID="weight-latest">
                 {latestWeight.weightKg.toFixed(1)} kg
@@ -136,7 +137,7 @@ export default function ProfileScreen() {
             />
           ) : null}
           <PrimaryButton
-            label="Log weight"
+            label={COPY.profile.logWeightButton}
             onPress={() => setWeightSheetVisible(true)}
             variant="secondary"
             testID="open-weight-sheet"
@@ -145,7 +146,7 @@ export default function ProfileScreen() {
         </View>
 
         <PrimaryButton
-          label={foodsCount > 0 ? `Food library (${foodsCount})` : 'Food library'}
+          label={foodsCount > 0 ? COPY.profile.openLibraryWithCount(foodsCount) : COPY.profile.openLibrary}
           variant="secondary"
           onPress={() => router.push('/foods')}
           testID="open-foods"
@@ -153,37 +154,37 @@ export default function ProfileScreen() {
         />
 
         <TextField
-          label="Calorie goal"
+          label={COPY.profile.goals.calorieLabel}
           value={draft.calorieGoal}
           onChangeText={(v) => update('calorieGoal', v)}
-          placeholder="2000"
+          placeholder={COPY.profile.goals.caloriePlaceholder}
           keyboardType="number-pad"
           error={visibleErrors.calorieGoal}
           testID="goal-calories"
         />
         <TextField
-          label="Protein goal (g)"
+          label={COPY.profile.goals.proteinLabel}
           value={draft.proteinGoalG}
           onChangeText={(v) => update('proteinGoalG', v)}
-          placeholder="optional"
+          placeholder={COPY.profile.goals.optionalPlaceholder}
           keyboardType="number-pad"
           error={visibleErrors.proteinGoalG}
           testID="goal-protein"
         />
         <TextField
-          label="Carbs goal (g)"
+          label={COPY.profile.goals.carbsLabel}
           value={draft.carbsGoalG}
           onChangeText={(v) => update('carbsGoalG', v)}
-          placeholder="optional"
+          placeholder={COPY.profile.goals.optionalPlaceholder}
           keyboardType="number-pad"
           error={visibleErrors.carbsGoalG}
           testID="goal-carbs"
         />
         <TextField
-          label="Fat goal (g)"
+          label={COPY.profile.goals.fatLabel}
           value={draft.fatGoalG}
           onChangeText={(v) => update('fatGoalG', v)}
-          placeholder="optional"
+          placeholder={COPY.profile.goals.optionalPlaceholder}
           keyboardType="number-pad"
           error={visibleErrors.fatGoalG}
           testID="goal-fat"
@@ -191,12 +192,12 @@ export default function ProfileScreen() {
 
         {savedFlash ? (
           <Text style={styles.savedFlash} testID="saved-flash">
-            Goals saved
+            {COPY.profile.goals.saved}
           </Text>
         ) : null}
 
         <PrimaryButton
-          label="Save goals"
+          label={COPY.profile.goals.saveButton}
           onPress={handleSave}
           loading={saving}
           testID="save-goals"
@@ -204,9 +205,9 @@ export default function ProfileScreen() {
         />
 
         <View style={styles.dangerZone}>
-          <Text style={styles.dangerLabel}>Session</Text>
+          <Text style={styles.dangerLabel}>{COPY.profile.sectionSession}</Text>
           <PrimaryButton
-            label="Sign out"
+            label={COPY.profile.dangerZone.signOutButton}
             onPress={handleSignOut}
             variant="danger"
             loading={signingOut}

@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 
 import { COLORS, TYPOGRAPHY } from '@/constants/theme';
+import { COPY } from '@/lib/copy';
 
 export default function FoodsLayout() {
   return (
@@ -17,9 +18,9 @@ export default function FoodsLayout() {
         contentStyle: { backgroundColor: COLORS.background },
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Foods' }} />
-      <Stack.Screen name="new" options={{ title: 'New food' }} />
-      <Stack.Screen name="[id]" options={{ title: 'Edit food' }} />
+      <Stack.Screen name="index" options={{ title: COPY.foods.library.title }} />
+      <Stack.Screen name="new" options={{ title: COPY.foods.new.title }} />
+      <Stack.Screen name="[id]" options={{ title: COPY.foods.edit.title }} />
     </Stack>
   );
 }

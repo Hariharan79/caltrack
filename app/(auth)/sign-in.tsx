@@ -7,6 +7,7 @@ import { COLORS, SPACING, TYPOGRAPHY } from "@/constants/theme";
 import { TextField } from "@/components/TextField";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { signIn, validateAuthDraft, hasErrors, type AuthDraft, type AuthDraftErrors } from "@/lib/auth";
+import { COPY } from "@/lib/copy";
 
 const EMPTY: AuthDraft = { email: "", password: "" };
 
@@ -32,7 +33,7 @@ export default function SignInScreen() {
     try {
       await signIn(draft);
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Sign in failed");
+      setFormError(err instanceof Error ? err.message : COPY.auth.signIn.genericError);
     } finally {
       setLoading(false);
     }
@@ -48,15 +49,15 @@ export default function SignInScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={styles.heading}>Welcome back</Text>
-          <Text style={styles.sub}>Sign in and get on with it.</Text>
+          <Text style={styles.heading}>{COPY.auth.signIn.title}</Text>
+          <Text style={styles.sub}>{COPY.auth.signIn.subtitle}</Text>
         </View>
 
         <TextField
-          label="Email"
+          label={COPY.auth.signIn.emailLabel}
           value={draft.email}
           onChangeText={(v) => update("email", v)}
-          placeholder="you@example.com"
+          placeholder={COPY.auth.signIn.emailPlaceholder}
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
@@ -65,10 +66,10 @@ export default function SignInScreen() {
           testID="sign-in-email"
         />
         <TextField
-          label="Password"
+          label={COPY.auth.signIn.passwordLabel}
           value={draft.password}
           onChangeText={(v) => update("password", v)}
-          placeholder="••••••••"
+          placeholder={COPY.auth.signIn.passwordPlaceholder}
           secureTextEntry
           textContentType="password"
           error={visible.password}
@@ -82,7 +83,7 @@ export default function SignInScreen() {
         ) : null}
 
         <PrimaryButton
-          label="Sign in"
+          label={COPY.auth.signIn.submit}
           onPress={handleSubmit}
           loading={loading}
           testID="sign-in-submit"
@@ -90,10 +91,10 @@ export default function SignInScreen() {
         />
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>No account yet?</Text>
+          <Text style={styles.footerText}>{COPY.auth.signIn.footerPrompt}</Text>
           <Link href="/(auth)/sign-up" asChild>
             <Pressable testID="sign-in-go-signup">
-              <Text style={styles.footerLink}>Create one</Text>
+              <Text style={styles.footerLink}>{COPY.auth.signIn.footerAction}</Text>
             </Pressable>
           </Link>
         </View>

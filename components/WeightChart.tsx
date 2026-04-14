@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COPY } from '@/lib/copy';
 import type { WeightEntry } from '@/types';
 
 interface WeightChartProps {
@@ -30,8 +31,8 @@ export function WeightChart({
   if (entries.length === 0) {
     return (
       <View style={[styles.empty, { width, height }]} testID={testID}>
-        <Text style={styles.emptyText}>No weight logged yet</Text>
-        <Text style={styles.emptyHint}>Log your weight to start tracking trend</Text>
+        <Text style={styles.emptyText}>{COPY.profile.weight.chartEmptyTitle}</Text>
+        <Text style={styles.emptyHint}>{COPY.profile.weight.chartEmptyHint}</Text>
       </View>
     );
   }

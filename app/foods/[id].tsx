@@ -3,6 +3,7 @@ import { Alert, Text, View, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COPY } from '@/lib/copy';
 import { FoodForm } from '@/components/FoodForm';
 import { foodToDraft } from '@/lib/foodForm';
 import { useAppStore } from '@/lib/store';
@@ -20,7 +21,7 @@ export default function EditFoodScreen() {
   if (!food) {
     return (
       <View style={styles.missing}>
-        <Text style={styles.missingText}>That food isn&apos;t in your library.</Text>
+        <Text style={styles.missingText}>{COPY.foods.edit.missing}</Text>
       </View>
     );
   }
@@ -30,15 +31,15 @@ export default function EditFoodScreen() {
       await updateFood(food.id, parsed);
       router.back();
     } catch (err) {
-      Alert.alert('Could not update food', err instanceof Error ? err.message : 'Unknown error');
+      Alert.alert(COPY.foods.form.updateFailedTitle, err instanceof Error ? err.message : COPY.errors.unknown);
     }
   };
 
   const confirmDelete = () => {
-    Alert.alert('Delete food?', `Remove "${food.name}" from your library.`, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(COPY.foods.form.deleteConfirmTitle, COPY.foods.form.deleteConfirmBody(food.name), [
+      { text: COPY.foods.form.deleteConfirmCancel, style: 'cancel' },
       {
-        text: 'Delete',
+        text: COPY.foods.form.deleteConfirmAction,
         style: 'destructive',
         onPress: async () => {
           try {
@@ -46,8 +47,8 @@ export default function EditFoodScreen() {
             router.back();
           } catch (err) {
             Alert.alert(
-              'Could not delete food',
-              err instanceof Error ? err.message : 'Unknown error'
+              COPY.foods.form.deleteFailedTitle,
+              err instanceof Error ? err.message : COPY.errors.unknown
             );
           }
         },
@@ -58,7 +59,7 @@ export default function EditFoodScreen() {
   return (
     <FoodForm
       initial={initialDraft}
-      submitLabel="Save changes"
+      submitLabel={COPY.foods.form.saveEdit}
       onSubmit={handleSubmit}
       onDelete={confirmDelete}
     />

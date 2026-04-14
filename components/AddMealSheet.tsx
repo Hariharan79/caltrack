@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COPY } from '@/lib/copy';
 import { TextField } from './TextField';
 import { PrimaryButton } from './PrimaryButton';
 import { Stepper } from './Stepper';
@@ -57,20 +58,20 @@ export function validateDraft(draft: DraftState): ValidationResult {
   const errors: Partial<Record<keyof DraftState, string>> = {};
 
   const name = draft.name.trim();
-  if (!name) errors.name = 'Name is required';
+  if (!name) errors.name = COPY.log.quickAdd.nameRequired;
 
   const calNum = Number(draft.calories);
   if (draft.calories.trim() === '') {
-    errors.calories = 'Calories required';
+    errors.calories = COPY.log.quickAdd.caloriesRequired;
   } else if (!Number.isFinite(calNum) || calNum <= 0) {
-    errors.calories = 'Must be a positive number';
+    errors.calories = COPY.log.quickAdd.mustBePositive;
   }
 
   const parseOptional = (raw: string, key: keyof DraftState): number | null => {
     if (raw.trim() === '') return null;
     const n = Number(raw);
     if (!Number.isFinite(n) || n < 0) {
-      errors[key] = 'Must be ≥ 0';
+      errors[key] = COPY.log.quickAdd.mustBeNonNegative;
       return null;
     }
     return n;
@@ -188,7 +189,7 @@ export function AddMealSheet({ visible, onClose, initialEntry = null }: AddMealS
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setSearchError(err instanceof Error ? err.message : 'Search failed');
+        setSearchError(err instanceof Error ? err.message : COPY.log.search.searchFailedFallback);
         setSearching(false);
       });
     return () => {
@@ -254,8 +255,8 @@ export function AddMealSheet({ visible, onClose, initialEntry = null }: AddMealS
       onClose();
     } catch (err) {
       Alert.alert(
-        'Could not save meal',
-        err instanceof Error ? err.message : 'Unknown error'
+        COPY.log.sheet.saveFailedTitle,
+        err instanceof Error ? err.message : COPY.errors.unknown
       );
       setSubmitting(false);
     }
@@ -281,8 +282,8 @@ export function AddMealSheet({ visible, onClose, initialEntry = null }: AddMealS
       onClose();
     } catch (err) {
       Alert.alert(
-        initialEntry ? 'Could not update meal' : 'Could not save meal',
-        err instanceof Error ? err.message : 'Unknown error'
+        initialEntry ? COPY.log.sheet.updateFailedTitle : COPY.log.sheet.saveFailedTitle,
+        err instanceof Error ? err.message : COPY.errors.unknown
       );
       setSubmitting(false);
     }
@@ -305,24 +306,24 @@ export function AddMealSheet({ visible, onClose, initialEntry = null }: AddMealS
             <Pressable
               onPress={handleClose}
               accessibilityRole="button"
-              accessibilityLabel="Cancel"
+              accessibilityLabel={COPY.log.sheet.cancel}
             >
-              <Text style={styles.headerAction}>Cancel</Text>
+              <Text style={styles.headerAction}>{COPY.log.sheet.cancel}</Text>
             </Pressable>
-            <Text style={styles.title}>{isEdit ? 'Edit meal' : 'Log meal'}</Text>
+            <Text style={styles.title}>{isEdit ? COPY.log.sheet.titleEdit : COPY.log.sheet.titleAdd}</Text>
             <View style={styles.headerSpacer} />
           </View>
 
           {!isEdit ? (
             <View style={styles.tabs}>
               <TabButton
-                label="Log"
+                label={COPY.log.sheet.tabLog}
                 active={tab === 'log'}
                 onPress={() => setTab('log')}
                 testID="tab-log"
               />
               <TabButton
-                label="Quick add"
+                label={COPY.log.sheet.tabQuick}
                 active={tab === 'quick'}
                 onPress={() => setTab('quick')}
                 testID="tab-quick"
@@ -422,7 +423,7 @@ function LogSearchView({
           label=""
           value={query}
           onChangeText={onQueryChange}
-          placeholder="Search foods…"
+          placeholder={COPY.log.search.placeholder}
           autoCapitalize="none"
           autoCorrect={false}
           testID="log-search"
@@ -436,17 +437,15 @@ function LogSearchView({
       >
         {showRecent ? (
           <>
-            <Text style={styles.sectionTitle}>Recents</Text>
+            <Text style={styles.sectionTitle}>{COPY.log.search.sectionRecents}</Text>
             {recentFoods.length === 0 ? (
-              <Text style={styles.empty}>
-                Nothing yet. Search for a food to log your first meal.
-              </Text>
+              <Text style={styles.empty}>{COPY.log.search.emptyRecents}</Text>
             ) : (
               recentFoods.map((food) => (
                 <FoodResultRow
                   key={`recent-${food.id}`}
                   title={food.name}
-                  subtitle={food.servingSize ?? '1 serving'}
+                  subtitle={food.servingSize ?? COPY.log.search.oneServing}
                   kcal={food.kcalPerServing}
                   onPress={() => onPickLocal(food)}
                   testID={`result-recent-${food.id}`}
@@ -458,12 +457,12 @@ function LogSearchView({
           <>
             {localMatches.length > 0 && (
               <>
-                <Text style={styles.sectionTitle}>Your library</Text>
+                <Text style={styles.sectionTitle}>{COPY.log.search.sectionLibrary}</Text>
                 {localMatches.map((food) => (
                   <FoodResultRow
                     key={`local-${food.id}`}
                     title={food.name}
-                    subtitle={food.servingSize ?? '1 serving'}
+                    subtitle={food.servingSize ?? COPY.log.search.oneServing}
                     kcal={food.kcalPerServing}
                     onPress={() => onPickLocal(food)}
                     testID={`result-local-${food.id}`}
@@ -472,17 +471,17 @@ function LogSearchView({
               </>
             )}
 
-            <Text style={styles.sectionTitle}>USDA</Text>
+            <Text style={styles.sectionTitle}>{COPY.log.search.sectionUsda}</Text>
             {searching && <ActivityIndicator color={COLORS.primary} style={styles.spinner} />}
             {searchError && <Text style={styles.error}>{searchError}</Text>}
             {!searching && !searchError && usdaResults.length === 0 && (
-              <Text style={styles.empty}>No matches.</Text>
+              <Text style={styles.empty}>{COPY.log.search.emptyUsda}</Text>
             )}
             {usdaResults.map((food) => (
               <FoodResultRow
                 key={`usda-${food.sourceId}`}
                 title={food.brand ? `${food.brand} — ${food.name}` : food.name}
-                subtitle={food.servingSize ?? 'per serving'}
+                subtitle={food.servingSize ?? COPY.log.search.perServing}
                 kcal={food.kcalPerServing}
                 onPress={() => onPickLookup(food)}
                 testID={`result-usda-${food.sourceId}`}
@@ -492,7 +491,7 @@ function LogSearchView({
         )}
       </ScrollView>
 
-      <Text style={styles.attribution}>Search powered by USDA FoodData Central</Text>
+      <Text style={styles.attribution}>{COPY.log.search.attribution}</Text>
     </View>
   );
 }
@@ -574,23 +573,23 @@ function SelectedFoodView({
         <Pressable
           onPress={onBack}
           accessibilityRole="button"
-          accessibilityLabel="Back to results"
+          accessibilityLabel={COPY.log.selected.backLabel}
           style={styles.backLink}
           testID="selected-back"
         >
-          <Text style={styles.backLinkText}>← Back to results</Text>
+          <Text style={styles.backLinkText}>{COPY.log.selected.back}</Text>
         </Pressable>
 
         <Text style={styles.selectedName}>{food.name}</Text>
         {brand && <Text style={styles.selectedBrand}>{brand}</Text>}
         {servingLabel && (
-          <Text style={styles.selectedServing}>Per serving: {servingLabel}</Text>
+          <Text style={styles.selectedServing}>{COPY.log.selected.perServingPrefix} {servingLabel}</Text>
         )}
 
-        <Text style={styles.sectionTitle}>Servings</Text>
+        <Text style={styles.sectionTitle}>{COPY.log.selected.servings}</Text>
         <Stepper value={servings} onChange={onChangeServings} testID="servings-stepper" />
 
-        <Text style={styles.sectionTitle}>You{'\u2019'}re logging</Text>
+        <Text style={styles.sectionTitle}>{COPY.log.selected.logging}</Text>
         <View style={styles.totalsCard}>
           <Text style={styles.totalKcal}>{scaledKcal} kcal</Text>
           <View style={styles.macroRow}>
@@ -603,7 +602,7 @@ function SelectedFoodView({
 
       <View style={styles.footer}>
         <PrimaryButton
-          label={submitting ? 'Saving…' : 'Log meal'}
+          label={submitting ? COPY.log.selected.saving : COPY.log.selected.logButton}
           onPress={onSave}
           disabled={submitting}
           testID="log-save"
@@ -632,25 +631,25 @@ interface QuickAddViewProps {
 }
 
 function QuickAddView({ draft, errors, onUpdate, onSave, submitting, isEdit }: QuickAddViewProps) {
-  const defaultLabel = isEdit ? 'Save changes' : 'Save meal';
-  const busyLabel = isEdit ? 'Saving…' : 'Saving…';
+  const defaultLabel = isEdit ? COPY.log.quickAdd.saveEdit : COPY.log.quickAdd.saveNew;
+  const busyLabel = COPY.log.quickAdd.saving;
   return (
     <View style={styles.flex}>
       <ScrollView style={styles.flex} contentContainerStyle={styles.scrollContent}>
         <TextField
-          label="Name"
+          label={COPY.log.quickAdd.nameLabel}
           value={draft.name}
           onChangeText={(v) => onUpdate('name', v)}
-          placeholder="e.g. Chicken bowl"
+          placeholder={COPY.log.quickAdd.namePlaceholder}
           autoCapitalize="words"
           error={errors.name}
           testID="meal-name"
         />
         <TextField
-          label="Calories"
+          label={COPY.log.quickAdd.caloriesLabel}
           value={draft.calories}
           onChangeText={(v) => onUpdate('calories', v)}
-          placeholder="0"
+          placeholder={COPY.log.quickAdd.caloriesPlaceholder}
           keyboardType="number-pad"
           error={errors.calories}
           testID="meal-calories"
@@ -658,10 +657,10 @@ function QuickAddView({ draft, errors, onUpdate, onSave, submitting, isEdit }: Q
         <View style={styles.row3}>
           <View style={styles.col}>
             <TextField
-              label="Protein (g)"
+              label={COPY.log.quickAdd.proteinLabel}
               value={draft.protein}
               onChangeText={(v) => onUpdate('protein', v)}
-              placeholder="—"
+              placeholder={COPY.log.quickAdd.macroPlaceholder}
               keyboardType="number-pad"
               error={errors.protein}
               testID="meal-protein"
@@ -669,10 +668,10 @@ function QuickAddView({ draft, errors, onUpdate, onSave, submitting, isEdit }: Q
           </View>
           <View style={styles.col}>
             <TextField
-              label="Carbs (g)"
+              label={COPY.log.quickAdd.carbsLabel}
               value={draft.carbs}
               onChangeText={(v) => onUpdate('carbs', v)}
-              placeholder="—"
+              placeholder={COPY.log.quickAdd.macroPlaceholder}
               keyboardType="number-pad"
               error={errors.carbs}
               testID="meal-carbs"
@@ -680,10 +679,10 @@ function QuickAddView({ draft, errors, onUpdate, onSave, submitting, isEdit }: Q
           </View>
           <View style={styles.col}>
             <TextField
-              label="Fat (g)"
+              label={COPY.log.quickAdd.fatLabel}
               value={draft.fat}
               onChangeText={(v) => onUpdate('fat', v)}
-              placeholder="—"
+              placeholder={COPY.log.quickAdd.macroPlaceholder}
               keyboardType="number-pad"
               error={errors.fat}
               testID="meal-fat"

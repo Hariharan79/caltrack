@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { COPY } from "@/lib/copy";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -16,14 +17,14 @@ export function validateAuthDraft(draft: AuthDraft): AuthDraftErrors {
   const errors: AuthDraftErrors = {};
   const email = draft.email.trim();
   if (!email) {
-    errors.email = "Required";
+    errors.email = COPY.auth.validation.required;
   } else if (!EMAIL_RE.test(email)) {
-    errors.email = "Not a valid email";
+    errors.email = COPY.auth.validation.invalidEmail;
   }
   if (!draft.password) {
-    errors.password = "Required";
+    errors.password = COPY.auth.validation.required;
   } else if (draft.password.length < 6) {
-    errors.password = "At least 6 characters";
+    errors.password = COPY.auth.validation.shortPassword;
   }
   return errors;
 }

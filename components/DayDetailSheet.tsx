@@ -8,6 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COPY } from '@/lib/copy';
 import type { DailyTotals, MealEntry } from '@/types';
 import { formatDayLabel } from '@/lib/date';
 import { EntryRow } from './EntryRow';
@@ -50,10 +51,10 @@ export function DayDetailSheet({
           <Pressable
             onPress={onClose}
             accessibilityRole="button"
-            accessibilityLabel="Close"
+            accessibilityLabel={COPY.history.detailClose}
             testID="day-detail-close"
           >
-            <Text style={styles.headerAction}>Close</Text>
+            <Text style={styles.headerAction}>{COPY.history.detailClose}</Text>
           </Pressable>
           <Text style={styles.title}>{label}</Text>
           <View style={styles.headerSpacer} />
@@ -66,7 +67,7 @@ export function DayDetailSheet({
           {totals ? (
             <View style={styles.summary}>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Calories</Text>
+                <Text style={styles.summaryLabel}>{COPY.history.detailCaloriesLabel}</Text>
                 <Text
                   style={[styles.summaryValue, overGoal && styles.over]}
                 >
@@ -81,7 +82,7 @@ export function DayDetailSheet({
               </View>
             </View>
           ) : (
-            <Text style={styles.emptyText}>No entries on this day.</Text>
+            <Text style={styles.emptyText}>{COPY.history.emptyDay}</Text>
           )}
 
           {sortedEntries.map((entry) => (

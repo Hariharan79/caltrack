@@ -7,6 +7,7 @@ import { COLORS, SPACING, TYPOGRAPHY } from "@/constants/theme";
 import { TextField } from "@/components/TextField";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { signUp, validateAuthDraft, hasErrors, type AuthDraft, type AuthDraftErrors } from "@/lib/auth";
+import { COPY } from "@/lib/copy";
 
 const EMPTY: AuthDraft = { email: "", password: "" };
 
@@ -33,9 +34,9 @@ export default function SignUpScreen() {
     setLoading(true);
     try {
       await signUp(draft);
-      setInfoMessage("Account created. Check your email if confirmation is required, then sign in.");
+      setInfoMessage(COPY.auth.signUp.success);
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Sign up failed");
+      setFormError(err instanceof Error ? err.message : COPY.auth.signUp.genericError);
     } finally {
       setLoading(false);
     }
@@ -51,15 +52,15 @@ export default function SignUpScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={styles.heading}>Create account</Text>
-          <Text style={styles.sub}>Track your intake across devices.</Text>
+          <Text style={styles.heading}>{COPY.auth.signUp.title}</Text>
+          <Text style={styles.sub}>{COPY.auth.signUp.subtitle}</Text>
         </View>
 
         <TextField
-          label="Email"
+          label={COPY.auth.signUp.emailLabel}
           value={draft.email}
           onChangeText={(v) => update("email", v)}
-          placeholder="you@example.com"
+          placeholder={COPY.auth.signUp.emailPlaceholder}
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
@@ -68,10 +69,10 @@ export default function SignUpScreen() {
           testID="sign-up-email"
         />
         <TextField
-          label="Password"
+          label={COPY.auth.signUp.passwordLabel}
           value={draft.password}
           onChangeText={(v) => update("password", v)}
-          placeholder="at least 6 characters"
+          placeholder={COPY.auth.signUp.passwordPlaceholder}
           secureTextEntry
           textContentType="newPassword"
           error={visible.password}
@@ -90,7 +91,7 @@ export default function SignUpScreen() {
         ) : null}
 
         <PrimaryButton
-          label="Create account"
+          label={COPY.auth.signUp.submit}
           onPress={handleSubmit}
           loading={loading}
           testID="sign-up-submit"
@@ -98,10 +99,10 @@ export default function SignUpScreen() {
         />
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Already have an account?</Text>
+          <Text style={styles.footerText}>{COPY.auth.signUp.footerPrompt}</Text>
           <Link href="/(auth)/sign-in" asChild>
             <Pressable testID="sign-up-go-signin">
-              <Text style={styles.footerLink}>Sign in</Text>
+              <Text style={styles.footerLink}>{COPY.auth.signUp.footerAction}</Text>
             </Pressable>
           </Link>
         </View>

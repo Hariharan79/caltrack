@@ -39,7 +39,7 @@ describe('EntriesList', () => {
 
   it('falls back to a default empty message', () => {
     const { getByText } = render(<EntriesList entries={[]} />);
-    expect(getByText('No meals yet')).toBeTruthy();
+    expect(getByText('No meals yet.')).toBeTruthy();
   });
 
   it('renders a row for each entry', () => {

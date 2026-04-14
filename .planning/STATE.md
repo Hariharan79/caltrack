@@ -4,19 +4,19 @@
 
 ---
 
-## 🟡 Phase 14 shipped (unverified) — 2026-04-14 overnight
+## 🟡 Phase 19 shipped (unverified) — 2026-04-14 overnight
 
-Phase 14 (F-14 edit entries in place) landed in a single commit during autonomous overnight mode. `updateEntry(id, patch)` added to `lib/store.ts` with `TablesUpdate<'log_entries'>` typed patches. `AddMealSheet` now takes an `initialEntry?: MealEntry | null` prop and opens directly into Quick add pre-filled; tabs are hidden in edit mode. `EntryRow` gained an `onPress` prop (tap-to-edit); delete button preserved. Today screen owns `editingEntry` state. D-30 locks in "edit preserves food_id". 261/261 jest, tsc + lint clean. **Runtime verification deferred to morning** — no iOS simulator run tonight.
+Phase 19 (V-01 brand voice copy pass) landed in a single commit during autonomous overnight mode. `lib/copy.ts` added as central string table — deeply readonly, typed, referenced from all user-facing surfaces. Every screen, sheet, validator, alert, empty state, and accessibility label now pulls from `COPY.*`. Voice follows D-22 ("dry with light personality"). Flagship lines: Today empty → "An empty log. What a glorious, untouched canvas.", no exclamation marks anywhere, error messages state the implied next step. 266/266 jest (added `__tests__/lib/copy.test.ts` smoke suite; updated TotalsCard/EntriesList/WeightChart tests to match new strings). tsc + lint clean. **Runtime verification deferred to morning** — no iOS simulator run tonight.
 
-Phase 13 also shipped overnight without runtime verification (bullshit detector, `da3c946`). Phases 13/14 both still need sim verification before marking done per N-11.
+Phase 14 (F-14 edit entries in place) shipped earlier overnight. Phase 13 (F-20 bullshit detector, `da3c946`) also shipped without runtime verification. Phases 13/14/19 all still need sim verification before marking done per N-11.
 
 ---
 
-## 🟢 Next action — runtime-verify Phases 13 + 14, then pick Phase 17 (barcode scan) or Phase 19 (copy pass)
+## 🟢 Next action — runtime-verify Phases 13 + 14 + 19, then pick Phase 16 (meal planning) or Phase 17 (barcode scan)
 
-Phase 14 is complete in code but **not runtime-verified**. Morning verification: (1) open the app, (2) tap an existing meal row on Today → sheet opens titled "Edit meal" with fields pre-filled, (3) change calories → save → totals and row update immediately, (4) cancel preserves the row, (5) FAB still opens fresh "Log meal". Also re-verify Phase 13: log a macro-inflated meal and confirm the ⚠ badge renders.
+Phase 19 is complete in code but **not runtime-verified**. Morning verification: (1) open every screen, confirm no stale strings, no exclamation marks, all empty states read in the new voice, (2) trigger an alert (delete a meal, save a malformed goal) and confirm error titles read "Couldn't save goals." etc., (3) re-verify Phases 13/14 while you're at it.
 
-Remaining v2 phases: **16, 17, 19, 20**. Next logical pick once 13/14 are sim-verified: Phase 17 (barcode scan) — one-screen feature, reuses the Phase 12 stepper UX. Phase 16 (meal planning) is larger. Phase 19 (copy pass) is cheap cleanup.
+Remaining v2 phases: **16, 17, 20**. Next logical pick once runtime verifications land: Phase 17 (barcode scan) — one-screen feature, reuses the Phase 12 stepper UX. Phase 16 (meal planning) is larger.
 
 Phase 12 verified end-to-end on 2026-04-14 after a JWT-algorithm triage that produced **D-28** (see DECISIONS.md). `food-lookup` now ships with `verify_jwt:false` because the project's auth mints ES256 user tokens while the function gateway's JWT verification is still pinned to HS256 and 401s every real user token. `lib/foodLookup.ts` also switched from `supabase.functions.invoke` to raw `fetch` for deterministic header handling. 229/229 jest, tsc + lint clean.
 
@@ -103,15 +103,15 @@ Phase 14 (edit entries in place) and Phase 16 (meal planning) are still blocked 
 - [ ] Phase 16 — Meal planning (blocked: depends on 12)
 - [ ] Phase 17 — Barcode scanning (unblocked — depends only on `lib/foodLookup.ts` ✅ + `expo-camera` install)
 - [x] Phase 18 — Calendar grid History (`c7e7575`, runtime-verified 2026-04-13)
-- [ ] Phase 19 — Brand voice copy pass
+- [x] Phase 19 — Brand voice copy pass (shipped overnight 2026-04-14, **runtime verification deferred** — static checks only)
 - [ ] Phase 20 — v2 verification + MORNING_SUMMARY_v2.md
 
 ## Health
 
 | Check | Status |
 |---|---|
-| `npx tsc --noEmit` | ✅ clean (end of Phase 13 overnight) |
-| `npx jest` | ✅ 261/261 passing (+3 updateEntry store tests, +3 AddMealSheet edit-mode tests, +1 EntriesList onPressEntry test) |
+| `npx tsc --noEmit` | ✅ clean (end of Phase 19 overnight) |
+| `npx jest` | ✅ 266/266 passing (+5 COPY table smoke tests from Phase 19) |
 | `npx expo lint` | ✅ 0 errors, 0 warnings |
 | `food-lookup` edge function | ✅ deployed v3 with `verify_jwt:false` (D-28). USDA text search + OFF barcode lookup verified end-to-end live 2026-04-14. |
 | `lib/` coverage | ✅ (not re-measured this session — rerun `jest --coverage` if needed) |

@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { CaretRight, CaretDown } from 'phosphor-react-native';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COPY } from '@/lib/copy';
 import type { DailyTotals, MealEntry } from '@/types';
 import { formatDayLabel } from '@/lib/date';
 import { EntryRow } from './EntryRow';
@@ -35,7 +36,7 @@ export function HistoryDay({ totals, entries, expanded, onToggle, goalCalories }
           <View style={styles.summaryText}>
             <Text style={styles.dayLabel}>{formatDayLabel(totals.dayKey)}</Text>
             <Text style={styles.dayMeta}>
-              {totals.entryCount} {totals.entryCount === 1 ? 'meal' : 'meals'}
+              {totals.entryCount} {totals.entryCount === 1 ? COPY.history.mealsSingular : COPY.history.mealsPlural}
             </Text>
           </View>
         </View>

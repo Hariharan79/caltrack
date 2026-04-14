@@ -1,4 +1,5 @@
 import type { Goals } from '@/types';
+import { COPY } from '@/lib/copy';
 
 export interface GoalsDraft {
   calorieGoal: string;
@@ -26,16 +27,16 @@ export function validateGoalsDraft(draft: GoalsDraft): GoalsValidation {
 
   const calorieNum = Number(draft.calorieGoal);
   if (draft.calorieGoal.trim() === '') {
-    errors.calorieGoal = 'Calorie goal is required';
+    errors.calorieGoal = COPY.profile.goals.required;
   } else if (!Number.isFinite(calorieNum) || calorieNum <= 0) {
-    errors.calorieGoal = 'Must be a positive number';
+    errors.calorieGoal = COPY.profile.goals.mustBePositive;
   }
 
   const parseOptional = (raw: string, key: keyof GoalsDraft): number | null => {
     if (raw.trim() === '') return null;
     const n = Number(raw);
     if (!Number.isFinite(n) || n < 0) {
-      errors[key] = 'Must be ≥ 0';
+      errors[key] = COPY.profile.goals.mustBeNonNegative;
       return null;
     }
     return n;

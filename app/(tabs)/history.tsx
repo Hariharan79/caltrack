@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CaretLeft, CaretRight } from 'phosphor-react-native';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COPY } from '@/lib/copy';
 import { useAppStore } from '@/lib/store';
 import { CalendarGrid } from '@/components/CalendarGrid';
 import { DayDetailSheet } from '@/components/DayDetailSheet';
@@ -62,14 +63,14 @@ export default function HistoryScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.heading}>History</Text>
+          <Text style={styles.heading}>{COPY.history.heading}</Text>
         </View>
 
         <View style={styles.monthBar}>
           <Pressable
             onPress={goPrev}
             accessibilityRole="button"
-            accessibilityLabel="Previous month"
+            accessibilityLabel={COPY.history.prevMonth}
             testID="cal-prev"
             style={styles.navButton}
             hitSlop={8}
@@ -84,7 +85,7 @@ export default function HistoryScreen() {
           <Pressable
             onPress={goNext}
             accessibilityRole="button"
-            accessibilityLabel="Next month"
+            accessibilityLabel={COPY.history.nextMonth}
             testID="cal-next"
             style={styles.navButton}
             hitSlop={8}
@@ -97,11 +98,11 @@ export default function HistoryScreen() {
           <Pressable
             onPress={goToday}
             accessibilityRole="button"
-            accessibilityLabel="Jump to today"
+            accessibilityLabel={COPY.history.jumpToToday}
             testID="cal-today"
             style={styles.todayButton}
           >
-            <Text style={styles.todayLabel}>Jump to today</Text>
+            <Text style={styles.todayLabel}>{COPY.history.jumpToToday}</Text>
           </Pressable>
         ) : null}
 
@@ -114,9 +115,9 @@ export default function HistoryScreen() {
         />
 
         <View style={styles.legend}>
-          <LegendItem color={COLORS.primary} label="At goal ±10%" />
-          <LegendItem color={COLORS.fat} label="Under" />
-          <LegendItem color={COLORS.protein} label="Over" />
+          <LegendItem color={COLORS.primary} label={COPY.history.legendAtGoal} />
+          <LegendItem color={COLORS.fat} label={COPY.history.legendUnder} />
+          <LegendItem color={COLORS.protein} label={COPY.history.legendOver} />
         </View>
       </ScrollView>
 

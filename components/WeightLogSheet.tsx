@@ -10,6 +10,7 @@ import {
   Pressable,
 } from 'react-native';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COPY } from '@/lib/copy';
 import { TextField } from './TextField';
 import { PrimaryButton } from './PrimaryButton';
 import type { NewWeightInput } from '@/types';
@@ -74,29 +75,29 @@ export function WeightLogSheet({ visible, onClose, onSubmit }: WeightLogSheetPro
             <Pressable
               onPress={onClose}
               accessibilityRole="button"
-              accessibilityLabel="Cancel"
+              accessibilityLabel={COPY.profile.dangerZone.signOutCancel}
             >
-              <Text style={styles.headerAction}>Cancel</Text>
+              <Text style={styles.headerAction}>{COPY.profile.dangerZone.signOutCancel}</Text>
             </Pressable>
-            <Text style={styles.title}>Log weight</Text>
+            <Text style={styles.title}>{COPY.profile.weight.sheetTitle}</Text>
             <View style={styles.headerSpacer} />
           </View>
 
           <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
             <TextField
-              label="Weight (kg)"
+              label={COPY.profile.weight.weightLabel}
               value={draft.weightKg}
               onChangeText={(v) => update('weightKg', v)}
-              placeholder="e.g. 72.4"
+              placeholder={COPY.profile.weight.weightPlaceholder}
               keyboardType="decimal-pad"
               error={visibleErrors.weightKg}
               testID="weight-kg"
             />
             <TextField
-              label="Body fat % (optional)"
+              label={COPY.profile.weight.bodyFatLabel}
               value={draft.bodyFatPct}
               onChangeText={(v) => update('bodyFatPct', v)}
-              placeholder="—"
+              placeholder={COPY.profile.weight.bodyFatPlaceholder}
               keyboardType="decimal-pad"
               error={visibleErrors.bodyFatPct}
               testID="weight-bodyfat"
@@ -105,7 +106,7 @@ export function WeightLogSheet({ visible, onClose, onSubmit }: WeightLogSheetPro
 
           <View style={styles.footer}>
             <PrimaryButton
-              label="Save weight"
+              label={COPY.profile.weight.saveButton}
               onPress={handleSubmit}
               loading={saving}
               testID="weight-save"

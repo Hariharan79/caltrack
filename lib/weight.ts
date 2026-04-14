@@ -1,4 +1,5 @@
 import type { NewWeightInput } from '@/types';
+import { COPY } from '@/lib/copy';
 
 export interface WeightDraft {
   weightKg: string;
@@ -21,12 +22,12 @@ export function validateWeightDraft(draft: WeightDraft): WeightValidation {
   const weightRaw = draft.weightKg.trim();
   const weightNum = Number(weightRaw);
   if (weightRaw === '') {
-    errors.weightKg = 'Weight is required';
+    errors.weightKg = COPY.profile.weight.required;
   } else if (!Number.isFinite(weightNum) || weightNum <= 0) {
-    errors.weightKg = 'Must be a positive number';
+    errors.weightKg = COPY.profile.weight.mustBePositive;
   } else if (weightNum > 635) {
     // sanity: heaviest human on record ~635kg
-    errors.weightKg = 'Must be realistic';
+    errors.weightKg = COPY.profile.weight.mustBeRealistic;
   }
 
   let bodyFatPct: number | null = null;
@@ -34,7 +35,7 @@ export function validateWeightDraft(draft: WeightDraft): WeightValidation {
   if (bfRaw !== '') {
     const bfNum = Number(bfRaw);
     if (!Number.isFinite(bfNum) || bfNum < 0 || bfNum > 100) {
-      errors.bodyFatPct = 'Must be between 0 and 100';
+      errors.bodyFatPct = COPY.profile.weight.bodyFatRange;
     } else {
       bodyFatPct = bfNum;
     }

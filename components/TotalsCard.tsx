@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COPY } from '@/lib/copy';
 import type { DailyTotals, Goals } from '@/types';
 
 interface TotalsCardProps {
@@ -26,7 +27,7 @@ export function TotalsCard({ totals, goals }: TotalsCardProps) {
 
   return (
     <View style={styles.card} testID="totals-card">
-      <Text style={styles.label}>Calories today</Text>
+      <Text style={styles.label}>{COPY.totals.todayLabel}</Text>
       <View style={styles.valueRow}>
         <Text style={styles.value} testID="totals-calories">
           {totals.calories}
@@ -47,14 +48,14 @@ export function TotalsCard({ totals, goals }: TotalsCardProps) {
 
       <Text style={styles.remaining} testID="totals-remaining">
         {overGoal
-          ? `${totals.calories - goals.calorieGoal} over goal`
-          : `${remaining} kcal remaining`}
+          ? COPY.totals.over(totals.calories - goals.calorieGoal)
+          : COPY.totals.remaining(remaining)}
       </Text>
 
       <View style={styles.macroRow}>
-        <MacroChip label="Protein" value={totals.proteinG} unit="g" color={COLORS.protein} />
-        <MacroChip label="Carbs" value={totals.carbsG} unit="g" color={COLORS.carbs} />
-        <MacroChip label="Fat" value={totals.fatG} unit="g" color={COLORS.fat} />
+        <MacroChip label={COPY.totals.proteinLabel} value={totals.proteinG} unit="g" color={COLORS.protein} />
+        <MacroChip label={COPY.totals.carbsLabel} value={totals.carbsG} unit="g" color={COLORS.carbs} />
+        <MacroChip label={COPY.totals.fatLabel} value={totals.fatG} unit="g" color={COLORS.fat} />
       </View>
     </View>
   );

@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COPY } from '@/lib/copy';
 import type { MealEntry } from '@/types';
 import { formatTime } from '@/lib/date';
 import { checkMacroSanity } from '@/lib/nutrition';
@@ -36,7 +37,7 @@ export function EntryRow({ entry, onDelete, onPress, showTime = true }: EntryRow
           {showBlatantBadge ? (
             <Text
               style={styles.bullshitBadge}
-              accessibilityLabel="Macros don't match calories"
+              accessibilityLabel={COPY.entries.badgeLabel}
               testID={`entry-badge-${entry.id}`}
             >
               {'\u26A0'}
@@ -58,11 +59,11 @@ export function EntryRow({ entry, onDelete, onPress, showTime = true }: EntryRow
           onPress={() => onDelete(entry.id)}
           style={styles.delete}
           accessibilityRole="button"
-          accessibilityLabel={`Delete ${entry.name}`}
+          accessibilityLabel={COPY.entries.deleteLabel(entry.name)}
           testID={`delete-${entry.id}`}
           hitSlop={8}
         >
-          <Text style={styles.deleteText}>Delete</Text>
+          <Text style={styles.deleteText}>{COPY.entries.deleteButton}</Text>
         </Pressable>
       ) : null}
     </>
@@ -74,7 +75,7 @@ export function EntryRow({ entry, onDelete, onPress, showTime = true }: EntryRow
         onPress={() => onPress(entry)}
         style={styles.row}
         accessibilityRole="button"
-        accessibilityLabel={`Edit ${entry.name}`}
+        accessibilityLabel={COPY.entries.editLabel(entry.name)}
         testID={`entry-row-${entry.id}`}
       >
         {inner}

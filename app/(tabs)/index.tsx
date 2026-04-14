@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Plus } from 'phosphor-react-native';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COPY } from '@/lib/copy';
 import {
   useAppStore,
   selectTodayEntries,
@@ -39,7 +40,7 @@ export default function TodayScreen() {
     try {
       await removeEntry(id);
     } catch (err) {
-      Alert.alert('Could not delete meal', err instanceof Error ? err.message : 'Unknown error');
+      Alert.alert(COPY.today.deleteFailedTitle, err instanceof Error ? err.message : COPY.errors.unknown);
     }
   };
 
@@ -63,18 +64,18 @@ export default function TodayScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.greeting}>Today</Text>
+          <Text style={styles.greeting}>{COPY.today.heading}</Text>
           <Text style={styles.date}>{todayHeaderLabel()}</Text>
         </View>
 
         <TotalsCard totals={totals} goals={goals} />
 
-        <Text style={styles.sectionTitle}>Meals</Text>
+        <Text style={styles.sectionTitle}>{COPY.today.sectionMeals}</Text>
         <EntriesList
           entries={entries}
           onDelete={handleRemoveEntry}
           onPressEntry={handlePressEntry}
-          emptyText="Tap + to log your first meal"
+          emptyText={COPY.today.emptyEntries}
         />
       </ScrollView>
 
@@ -85,7 +86,7 @@ export default function TodayScreen() {
         }}
         style={[styles.fab, { bottom: TAB_BAR_PADDING + insets.bottom - 32 }]}
         accessibilityRole="button"
-        accessibilityLabel="Log a meal"
+        accessibilityLabel={COPY.today.fabLabel}
         testID="log-meal-fab"
       >
         <Plus color={COLORS.text} size={28} weight="bold" />

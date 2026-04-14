@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COPY } from '@/lib/copy';
 import { TextField } from './TextField';
 import { PrimaryButton } from './PrimaryButton';
 import {
@@ -84,28 +85,28 @@ export function FoodForm({ initial, submitLabel, onSubmit, onDelete }: FoodFormP
       keyboardShouldPersistTaps="handled"
     >
       <TextField
-        label="Name"
+        label={COPY.foods.form.nameLabel}
         value={draft.name}
         onChangeText={(v) => update('name', v)}
-        placeholder="e.g. Chicken breast"
+        placeholder={COPY.foods.form.namePlaceholder}
         autoCapitalize="words"
         error={visibleErrors.name}
         testID="food-name"
       />
       <TextField
-        label="Serving size"
+        label={COPY.foods.form.servingLabel}
         value={draft.servingSize}
         onChangeText={(v) => update('servingSize', v)}
-        placeholder="e.g. 100 g, 1 cup"
+        placeholder={COPY.foods.form.servingPlaceholder}
         autoCapitalize="none"
         error={visibleErrors.servingSize}
         testID="food-serving-size"
       />
       <TextField
-        label="Calories per serving"
+        label={COPY.foods.form.kcalLabel}
         value={draft.kcalPerServing}
         onChangeText={(v) => update('kcalPerServing', v)}
-        placeholder="0"
+        placeholder={COPY.foods.form.kcalPlaceholder}
         keyboardType="number-pad"
         error={visibleErrors.kcalPerServing}
         testID="food-kcal"
@@ -114,10 +115,10 @@ export function FoodForm({ initial, submitLabel, onSubmit, onDelete }: FoodFormP
       <View style={styles.row}>
         <View style={styles.col}>
           <TextField
-            label="Protein (g)"
+            label={COPY.foods.form.proteinLabel}
             value={draft.proteinGPerServing}
             onChangeText={(v) => update('proteinGPerServing', v)}
-            placeholder="—"
+            placeholder={COPY.foods.form.macroPlaceholder}
             keyboardType="number-pad"
             error={visibleErrors.proteinGPerServing}
             testID="food-protein"
@@ -125,10 +126,10 @@ export function FoodForm({ initial, submitLabel, onSubmit, onDelete }: FoodFormP
         </View>
         <View style={styles.col}>
           <TextField
-            label="Carbs (g)"
+            label={COPY.foods.form.carbsLabel}
             value={draft.carbsGPerServing}
             onChangeText={(v) => update('carbsGPerServing', v)}
-            placeholder="—"
+            placeholder={COPY.foods.form.macroPlaceholder}
             keyboardType="number-pad"
             error={visibleErrors.carbsGPerServing}
             testID="food-carbs"
@@ -136,10 +137,10 @@ export function FoodForm({ initial, submitLabel, onSubmit, onDelete }: FoodFormP
         </View>
         <View style={styles.col}>
           <TextField
-            label="Fat (g)"
+            label={COPY.foods.form.fatLabel}
             value={draft.fatGPerServing}
             onChangeText={(v) => update('fatGPerServing', v)}
-            placeholder="—"
+            placeholder={COPY.foods.form.macroPlaceholder}
             keyboardType="number-pad"
             error={visibleErrors.fatGPerServing}
             testID="food-fat"
@@ -159,8 +160,8 @@ export function FoodForm({ initial, submitLabel, onSubmit, onDelete }: FoodFormP
         >
           <Text style={styles.sanityText}>
             {sanity.severity === 'blatant'
-              ? `These macros don't add up. Implied ${Math.round(sanity.impliedKcal)} kcal.`
-              : `Numbers look off — implied ${Math.round(sanity.impliedKcal)} kcal from macros.`}
+              ? `${COPY.foods.form.sanityBlatantPrefix}. ${COPY.foods.form.sanityImplied(Math.round(sanity.impliedKcal))}`
+              : `${COPY.foods.form.sanityMildPrefix}. ${COPY.foods.form.sanityImplied(Math.round(sanity.impliedKcal))}`}
           </Text>
         </View>
       ) : null}
@@ -175,7 +176,7 @@ export function FoodForm({ initial, submitLabel, onSubmit, onDelete }: FoodFormP
 
       {onDelete ? (
         <PrimaryButton
-          label="Delete food"
+          label={COPY.foods.form.deleteButton}
           onPress={handleDelete}
           variant="danger"
           loading={deleting}

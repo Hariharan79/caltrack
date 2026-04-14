@@ -1,4 +1,5 @@
 import type { Food, NewFoodInput } from '@/types';
+import { COPY } from '@/lib/copy';
 
 export interface FoodDraft {
   name: string;
@@ -41,21 +42,21 @@ export function validateFoodDraft(draft: FoodDraft): FoodValidation {
 
   const name = draft.name.trim();
   if (!name) {
-    errors.name = 'Name is required';
+    errors.name = COPY.foods.form.nameRequired;
   }
 
   const kcalNum = Number(draft.kcalPerServing);
   if (draft.kcalPerServing.trim() === '') {
-    errors.kcalPerServing = 'Calories per serving is required';
+    errors.kcalPerServing = COPY.foods.form.kcalRequired;
   } else if (!Number.isFinite(kcalNum) || kcalNum <= 0) {
-    errors.kcalPerServing = 'Must be a positive number';
+    errors.kcalPerServing = COPY.foods.form.mustBePositive;
   }
 
   const parseOptional = (raw: string, key: keyof FoodDraft): number | null => {
     if (raw.trim() === '') return null;
     const n = Number(raw);
     if (!Number.isFinite(n) || n < 0) {
-      errors[key] = 'Must be ≥ 0';
+      errors[key] = COPY.foods.form.mustBeNonNegative;
       return null;
     }
     return n;

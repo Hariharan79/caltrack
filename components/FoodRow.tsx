@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COPY } from '@/lib/copy';
 import type { Food } from '@/types';
 
 interface FoodRowProps {
@@ -23,7 +24,7 @@ export function FoodRow({ food, onPress }: FoodRowProps) {
       onPress={onPress ? () => onPress(food.id) : undefined}
       disabled={!onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Edit ${food.name}`}
+      accessibilityLabel={COPY.foods.form.editLabel(food.name)}
       testID={`food-row-${food.id}`}
       style={({ pressed }) => [styles.row, pressed && onPress ? styles.pressed : null]}
     >

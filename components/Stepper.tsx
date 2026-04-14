@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, Pressable, TextInput, StyleSheet } from 'react-native';
 import { Minus, Plus } from 'phosphor-react-native';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COPY } from '@/lib/copy';
 
 interface StepperProps {
   value: number;
@@ -54,7 +55,7 @@ export function Stepper({
         onPress={decrement}
         disabled={decDisabled}
         accessibilityRole="button"
-        accessibilityLabel="Decrease servings"
+        accessibilityLabel={COPY.stepper.decrease}
         style={[styles.button, decDisabled && styles.buttonDisabled]}
         testID={testID ? `${testID}-decrement` : undefined}
       >
@@ -80,7 +81,7 @@ export function Stepper({
             setEditing(true);
           }}
           accessibilityRole="button"
-          accessibilityLabel={`Servings: ${formatServings(value)}. Tap to edit.`}
+          accessibilityLabel={COPY.stepper.valueLabel(formatServings(value))}
           style={styles.valueWrap}
           testID={testID ? `${testID}-value` : undefined}
         >
@@ -92,7 +93,7 @@ export function Stepper({
         onPress={increment}
         disabled={incDisabled}
         accessibilityRole="button"
-        accessibilityLabel="Increase servings"
+        accessibilityLabel={COPY.stepper.increase}
         style={[styles.button, incDisabled && styles.buttonDisabled]}
         testID={testID ? `${testID}-increment` : undefined}
       >

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter, useNavigation } from 'expo-router';
 
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COPY } from '@/lib/copy';
 import { TextField } from '@/components/TextField';
 import { FoodRow } from '@/components/FoodRow';
 import { useAppStore, searchFoods } from '@/lib/store';
@@ -21,22 +22,22 @@ export default function FoodsListScreen() {
         <Pressable
           onPress={() => router.back()}
           accessibilityRole="button"
-          accessibilityLabel="Close food library"
+          accessibilityLabel={COPY.foods.library.closeLabel}
           hitSlop={12}
           testID="food-close"
         >
-          <Text style={styles.headerAction}>Close</Text>
+          <Text style={styles.headerAction}>{COPY.foods.library.closeAction}</Text>
         </Pressable>
       ),
       headerRight: () => (
         <Pressable
           onPress={() => router.push('/foods/new')}
           accessibilityRole="button"
-          accessibilityLabel="Add food"
+          accessibilityLabel={COPY.foods.library.addLabel}
           hitSlop={12}
           testID="food-add"
         >
-          <Text style={styles.headerAction}>Add</Text>
+          <Text style={styles.headerAction}>{COPY.foods.library.addAction}</Text>
         </Pressable>
       ),
     });
@@ -46,10 +47,10 @@ export default function FoodsListScreen() {
     <View style={styles.container}>
       <View style={styles.searchWrap}>
         <TextField
-          label="Search"
+          label={COPY.foods.library.searchLabel}
           value={query}
           onChangeText={setQuery}
-          placeholder="Find a food"
+          placeholder={COPY.foods.library.searchPlaceholder}
           autoCapitalize="none"
           autoCorrect={false}
           testID="food-search"
@@ -65,8 +66,8 @@ export default function FoodsListScreen() {
           <View style={styles.empty}>
             <Text style={styles.emptyText}>
               {foods.length === 0
-                ? 'Your food library is empty. Tap Add to create your first food.'
-                : 'No foods match that search.'}
+                ? COPY.foods.library.emptyLibrary
+                : COPY.foods.library.emptySearch}
             </Text>
           </View>
         ) : (

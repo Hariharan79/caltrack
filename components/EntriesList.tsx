@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COPY } from '@/lib/copy';
 import type { MealEntry } from '@/types';
 import { EntryRow } from './EntryRow';
 
@@ -14,7 +15,7 @@ export function EntriesList({
   entries,
   onDelete,
   onPressEntry,
-  emptyText = 'No meals yet',
+  emptyText = COPY.entries.defaultEmpty,
 }: EntriesListProps) {
   if (entries.length === 0) {
     return (

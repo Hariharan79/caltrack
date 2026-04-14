@@ -50,12 +50,12 @@ describe('TotalsCard', () => {
   it('renders calories and remaining text', () => {
     const { getByTestId } = render(<TotalsCard totals={totals} goals={goals} />);
     expect(getByTestId('totals-calories').props.children).toBe(800);
-    expect(getByTestId('totals-remaining').props.children).toBe('1200 kcal remaining');
+    expect(getByTestId('totals-remaining').props.children).toBe('1200 kcal left.');
   });
 
   it('shows over-goal text when consumed exceeds goal', () => {
     const overTotals = { ...totals, calories: 2300 };
     const { getByTestId } = render(<TotalsCard totals={overTotals} goals={goals} />);
-    expect(getByTestId('totals-remaining').props.children).toBe('300 over goal');
+    expect(getByTestId('totals-remaining').props.children).toBe('300 over.');
   });
 });
