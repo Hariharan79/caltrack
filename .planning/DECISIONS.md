@@ -185,3 +185,46 @@ Impact on Phase 17:
 - **Phase 17 is now blocked on 11.5** — moving it out of the "unblocked leaves" bucket until FatSecret credentials land. This is a scope trade we accept to avoid maintaining two food APIs.
 
 Phase 18 (calendar History) is now the only unblocked v2 leaf. Picking it up next.
+
+## D-27 — USDA FoodData Central + Open Food Facts via edge function (**supersedes D-25, D-26**)
+
+2026-04-13 (later, post-Phase 18): User reviewed FatSecret's terms of service and pushed back on the limitations:
+
+- FatSecret's caching rule (24-hour expiry on everything except IDs from a tiny "storable" list) breaks the entire D-25 / Phase 12 plan to upsert into `public.foods`. Workaround would have been to store only `food_id` and re-fetch on every read — possible but adds latency and complexity for no upside.
+- "Generally accessible to users" clause sits in a gray area for a strictly-personal app.
+- The original D-25 plan to bundle credentials as `EXPO_PUBLIC_FATSECRET_*` is also at odds with FatSecret's "you are responsible for the secrecy of your Keys" clause, since `EXPO_PUBLIC_*` values get extracted by anyone who unzips the app bundle.
+
+User opted to switch to a **two-source split** with **server-side credential handling**:
+
+- **Open Food Facts** for barcode lookups — ODbL open data, no API key, biggest barcode database, no caching restrictions, attribution required ("Data from Open Food Facts")
+- **USDA FoodData Central** for text search — free government API, ~2 minute signup at api.data.gov, 1000 req/hr per key, high-quality branded + foundation foods, no caching restrictions
+- Both sources are reached through a **single Supabase Edge Function** `food-lookup` deployed via `mcp__supabase__deploy_edge_function`. The function accepts `{source: 'usda', query: '…'}` or `{source: 'off', barcode: '…'}` and returns a normalized shape so consumers don't care which source a result came from
+- **Secrets** live in Supabase project secrets (`USDA_FDC_API_KEY`), set via the dashboard / CLI. Never in `.env`, never in `EXPO_PUBLIC_*`, never in git.
+- Edge function requires the user's Supabase JWT (default Edge Function behavior) so anonymous traffic can't burn the rate limit.
+
+### Normalized food shape
+
+```ts
+interface NormalizedFood {
+  source: 'usda' | 'off';
+  sourceId: string;          // fdcId for usda, barcode/code for off
+  name: string;
+  brand: string | null;
+  servingSize: string | null;
+  kcalPerServing: number;
+  proteinG: number | null;
+  carbsG: number | null;
+  fatG: number | null;
+  imageUrl: string | null;
+}
+```
+
+### Impact on phases
+
+- **Phase 11.5** now ships: the edge function (`supabase/functions/food-lookup/index.ts`), a thin `lib/foodLookup.ts` client wrapper around `supabase.functions.invoke`, response normalizers for both sources, and unit tests against fixtures from each API. No client-side credentials anywhere.
+- **Phase 12** (food-first logging flow) consumes `lib/foodLookup.ts`. Since both sources allow caching, Phase 12 can upsert search results into `public.foods` for the recents list (the original D-25 plan, now legal). UX: debounced search-as-you-type (300ms) hitting USDA via the edge function. Display "Data from USDA FoodData Central" attribution on the search screen.
+- **Phase 17** (barcode scan) becomes simpler: barcode scan → call `lib/foodLookup.ts` with `{source: 'off', barcode}` → pre-fill `FoodForm`. Same client wrapper as text search, just a different source. Display "Data from Open Food Facts" attribution on the scan result. Phase 17 is now **unblocked again** (depends only on Phase 11.5 + expo-camera install).
+
+### History this is escaping
+
+D-09 (original OFF-only plan) → D-24 (swap to Nutritionix, then their free tier vanished overnight) → D-25 (swap to FatSecret) → **D-27** (split into USDA for search + OFF for barcode, both behind an edge function). The lesson recorded for next time: pick the architecture that keeps the credentials server-side from day one, even for a personal app — the refactor cost when you change your mind is real.

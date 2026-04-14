@@ -4,32 +4,35 @@
 
 ---
 
-## 🟢 Next action — Phase 13: Bullshit detector (F-20)
+## 🟢 Next action — Phase 12: Food-first logging flow (consumes 11.5)
 
-Phase 18 shipped + runtime-verified on 2026-04-13 (`c7e7575`). 10 days of April entries pre-seeded via Supabase MCP covering under/hit/over states, user confirmed grid + dots + sheet + month nav all work. 169/169 tests, tsc + lint clean.
+Phase 11.5 shipped on 2026-04-13 (`abe7d16`) — **D-27 swapped FatSecret for USDA FoodData Central + Open Food Facts** behind a Supabase Edge Function `food-lookup`. The function is deployed (version 1, ACTIVE, JWT verification on), USDA secret is set in Supabase project secrets, both endpoints smoke-tested end-to-end (USDA "chicken breast" → 3 branded results; OFF barcode 737628064502 → Thai peanut noodle kit with image).
 
-**Phase 11.5 remains parked** on the FatSecret API key. After folding Phase 17 into the FatSecret chain (see **D-26** — barcode uses `food.find_id_for_barcode`, not Open Food Facts), the dependency graph now looks like:
+`lib/foodLookup.ts` exposes `searchByText(query, pageSize?)` and `getByBarcode(barcode)` — both return `NormalizedFood` from `lib/foodNormalizers.ts`. 205/205 tests pass, tsc + lint clean.
 
-- Blocked on 11.5: Phase 12, 14, 16, 17
-- Unblocked leaves: **Phase 13** (depends on 11 ✅), Phase 19 (brand voice copy pass — better done last, after 12/13/14/16/17 so it covers all surfaces)
+### Why Phase 12 next (not Phase 13)
 
-Phase 13 is the only unblocked substantive phase. Spec per ROADMAP:
+Phase 12 is the whole reason 11.5 exists. Wiring `lib/foodLookup.ts` into the actual log flow turns this into a real food tracker instead of a demo. Phase 13 (bullshit detector) is still independently unblocked but lower marginal value — the search experience matters more than catching macro/kcal mismatches on user-entered foods.
 
-- `lib/nutrition.ts` — pure module:
-  - `kcalFromMacros({proteinG, carbsG, fatG})` — 4P + 4C + 9F
-  - `checkMacroSanity({calories, proteinG, carbsG, fatG})` → `{ok: boolean, severity: 'ok' | 'mild' | 'blatant', impliedKcal: number, deltaKcal: number}`
-  - Tolerance: `max(25 kcal, 15% of claimed)`. Severity ratios — decide in tests.
-- Inline warning UI: surface a short dry note on `FoodForm` when `checkMacroSanity` is not `ok` (D-22 voice applies — "These macros don't add up" or similar)
-- ⚠ badge on `EntryRow` for entries derived from foods flagged `blatant`
-- Tests: ≥ 15 unit tests covering null macros, fractional values, high-fiber edge cases, zero-cal/zero-macro, exactly at tolerance, just over, etc.
-- **Runtime verification (N-11):** edit/create a food with mismatched macros → see the warning → save anyway → see the ⚠ badge appear on the log row
-- **Commit:** `feat(nutrition): macro-vs-calories bullshit detector`
+Spec for Phase 12 (adapted from ROADMAP, with D-27 changes baked in):
 
-### Why this shape
+- Rewrite `AddMealSheet` as a tabbed sheet:
+  - **Log** tab (primary, opens by default):
+    - Search input wired to `searchByText` debounced 300ms
+    - Local `foods` table search merged with USDA results, dedup'd
+    - Recent foods list (from log_entries history) above search results when query is empty
+    - Tap a result → stepper for servings → save
+    - On save, upsert the picked food into the user's `public.foods` table with `source: 'usda'` so repeat queries don't hit USDA. Allowed because USDA has no caching restriction.
+  - **Quick add** tab (secondary): the v1 form (name + raw kcal + macros)
+- New `components/Stepper.tsx` — hybrid stepper with tap-to-type (per D-17)
+- Attribution footer on the Log tab: "Search powered by USDA FoodData Central" (per D-27 / ODbL terms even though USDA doesn't strictly require it — good practice)
+- Tests: `__tests__/components/Stepper.test.tsx`, updated AddMealSheet tests (mock `lib/foodLookup`)
+- **Runtime verification (N-11):** log via search → 0.5 servings → save → today totals reflect; test the recent-foods list after a few logs; confirm the upsert to `public.foods` happens by checking the food library after
+- **Commit:** `feat(log): food-first logging via usda search`
 
-- Phase 13 touches `FoodForm` and `EntryRow` — both already exist and are stable. No new routes, no migrations, no deps.
-- The pure `lib/nutrition.ts` is easy to TDD. Most of the work is test coverage.
-- Once 13 is done, the only remaining unblocked work is Phase 19 (copy pass), which should wait until 11.5 unblocks the rest of the chain so the copy pass covers everything at once.
+### Phase 17 unblocked too
+
+Phase 17 (barcode scan) only depends on `lib/foodLookup.ts` (now done) plus `expo-camera` install. It's a one-screen feature — could be done before or after Phase 12. After 12 is more natural since the barcode result feeds into the same pre-fill UX.
 
 ### Known gotchas (carry forward, read before touching anything)
 
@@ -44,6 +47,9 @@ Phase 13 is the only unblocked substantive phase. Spec per ROADMAP:
 - **`react-native-svg` was NOT pre-installed** despite the ROADMAP claiming "ships with Expo" — I installed it via `npx expo install react-native-svg` during Phase 15. Already whitelisted in `jest.config.js` transformIgnorePatterns, so component tests Just Work.
 - **Chart width** — `WeightChart` takes an explicit `width` prop because `<Svg>` needs numeric width. `profile.tsx` uses `onLayout` on the card to capture the available width, stored in state, and only renders the chart once width > 0.
 - **Don't import from `lib/store.ts` in pure utility modules** — `lib/store.ts` transitively imports `@react-native-async-storage/async-storage` via `lib/supabase.ts`, which fails in Jest without the `store.test.ts`-style manual `jest.mock('@/lib/supabase', ...)`. Phase 18's `lib/calendar.ts` originally called `store.computeDailyTotals` and blew up at test time; the fix was to inline the aggregation in `buildTotalsByDay`. Rule of thumb: pure utility modules should only import from `lib/date.ts` or other pure helpers, never from `store.ts` / `supabase.ts` / `auth.ts`.
+- **Edge function deploy is single-file inlined** — `mcp__supabase__deploy_edge_function` accepts multiple files but Deno's relative TypeScript imports in the deploy bundle don't always resolve cleanly across folders. Workaround used in Phase 11.5: keep source files split for editing (`supabase/functions/food-lookup/index.ts`, `_shared/cors.ts`, `lib/foodNormalizers.ts`) but pass a single inlined string to the deploy tool. After editing any of the split files, re-bundle by hand. tsconfig.json + eslint.config.js exclude `supabase/functions/**` so the Deno-only code doesn't get type-checked or linted by the Node toolchain.
+- **`supabase.functions.invoke` from `lib/foodLookup.ts` requires the user's auth token** — the function has `verify_jwt: true`, so callers must be authenticated. The supabase-js client auto-attaches the session token when it exists. If a call returns 401 in the app, check that the user is signed in, not that the function is broken.
+- **USDA `dataType` matters for parsing** — Branded foods report nutrition in `labelNutrients` (per serving), while Foundation / SR Legacy use `foodNutrients` (per 100g). `lib/foodNormalizers.ts` `normalizeUsda` branches on this. When extending: never assume a single field path works for both.
 
 ---
 
@@ -52,7 +58,9 @@ Phase 13 is the only unblocked substantive phase. Spec per ROADMAP:
 - **Repo:** `/Users/hari7aran/Desktop/caltrack-autopilot-test`
 - **Supabase project:** `gjzonxmvfaokjpgfykrn.supabase.co` (MCP connected)
 - **Branch:** `main` (all work lives here; no feature branches this project)
-- **Last commit:** `c7e7575` — `feat(history): calendar grid with day detail sheet`
+- **Last commit:** `abe7d16` — `feat(food): usda + off lookup behind food-lookup edge function`
+- **Edge function `food-lookup`** is deployed (version 1, JWT verification on). To redeploy after editing source files: re-bundle the inlined contents of `supabase/functions/food-lookup/index.ts` + `_shared/cors.ts` + `lib/foodNormalizers.ts` into a single string and call `mcp__supabase__deploy_edge_function` with `name: 'food-lookup'`. The split source files exist for editing/testing; the deployed bundle is one file to dodge cross-directory import resolution in the Edge runtime.
+- **Supabase secrets** has `USDA_FDC_API_KEY` set (project dashboard → Edge Functions → Secrets). Don't put it in `.env`. Function fails with a clear 500 if it's missing.
 - **User mode:** interactive during the day, occasionally authorizes autonomous overnight work. See `~/.claude/projects/-Users-hari7aran-Desktop-caltrack-autopilot-test/memory/session_mode_overnight.md`.
 - **Read-before-edit hook:** this project has an aggressive PreToolUse hook that flags edits to files not read-in-session. It's noisy but edits still succeed. Just re-read and retry if needed.
 
@@ -84,13 +92,13 @@ Phase 13 is the only unblocked substantive phase. Spec per ROADMAP:
 - [x] Phase 9 — Auth flow + session-gated routing (`49a32c6`, runtime-verified 2026-04-13)
 - [x] Phase 10 — Store refactor to Supabase-backed (`c3c419d`, runtime-verified 2026-04-13)
 - [x] Phase 11 — Foods table CRUD + library UI (`9bb1b8f`, runtime-verified 2026-04-13)
-- [ ] Phase 11.5 — FatSecret API client (**D-25 supersedes D-24** — parked on user credentials)
-- [ ] Phase 12 — Food-first logging flow with stepper (blocked: depends on 11.5)
-- [ ] **Phase 13 — Bullshit detector (F-20)** ← YOU ARE HERE (depends on 11 ✅, only unblocked substantive leaf)
-- [ ] Phase 14 — Edit entries in place (blocked: depends on 12 → 11.5)
+- [x] Phase 11.5 — Food-lookup edge function (USDA + OFF) (`abe7d16`, smoke-tested 2026-04-13, see **D-27**)
+- [ ] **Phase 12 — Food-first logging flow with stepper** ← YOU ARE HERE (now unblocked, consumes `lib/foodLookup.ts`)
+- [ ] Phase 13 — Bullshit detector (F-20) (still independently unblocked, but lower marginal value than 12)
+- [ ] Phase 14 — Edit entries in place (blocked: depends on 12)
 - [x] Phase 15 — Weight tracking + trend chart (`7fd7795`, runtime-verified 2026-04-13)
-- [ ] Phase 16 — Meal planning (blocked: depends on 12 → 11.5)
-- [ ] Phase 17 — Barcode scanning (blocked: re-routed through FatSecret per **D-26**, so now depends on 11.5)
+- [ ] Phase 16 — Meal planning (blocked: depends on 12)
+- [ ] Phase 17 — Barcode scanning (now unblocked too — depends only on `lib/foodLookup.ts` ✅ + `expo-camera` install)
 - [x] Phase 18 — Calendar grid History (`c7e7575`, runtime-verified 2026-04-13)
 - [ ] Phase 19 — Brand voice copy pass
 - [ ] Phase 20 — v2 verification + MORNING_SUMMARY_v2.md
@@ -99,9 +107,10 @@ Phase 13 is the only unblocked substantive phase. Spec per ROADMAP:
 
 | Check | Status |
 |---|---|
-| `npx tsc --noEmit` | ✅ clean (end of Phase 18) |
-| `npx jest` | ✅ 169/169 passing (end of Phase 18; +18 new from `lib/calendar.test.ts`) |
+| `npx tsc --noEmit` | ✅ clean (end of Phase 11.5) |
+| `npx jest` | ✅ 205/205 passing (end of Phase 11.5; +36 new: 24 normalizers, 12 client wrapper) |
 | `npx expo lint` | ✅ 0 errors, 0 warnings |
+| `food-lookup` edge function | ✅ deployed v1, JWT verified, USDA + OFF smoke-tested live |
 | `lib/` coverage | ✅ (not re-measured this session — rerun `jest --coverage` if needed) |
 | Supabase MCP | ✅ connected, 20 tools available |
 | Supabase schema | ✅ 5 tables + 1 view + RLS on all, 0 rows |
