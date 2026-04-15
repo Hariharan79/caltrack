@@ -33,6 +33,7 @@ const entries: MealEntry[] = [
     dayKey: '2026-04-12',
     foodId: null,
     servings: 1,
+    status: 'eaten',
   },
   {
     id: 'e2',
@@ -45,6 +46,7 @@ const entries: MealEntry[] = [
     dayKey: '2026-04-12',
     foodId: null,
     servings: 1,
+    status: 'eaten',
   },
 ];
 

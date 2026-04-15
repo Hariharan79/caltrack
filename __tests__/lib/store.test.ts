@@ -65,6 +65,8 @@ import {
   selectWeightHistory,
   selectLatestWeight,
   selectRecentFoods,
+  selectPlannedForToday,
+  selectPlannedUpcoming,
   DEFAULT_GOALS,
 } from '@/lib/store';
 import type { Food, MealEntry, WeightEntry } from '@/types';
@@ -194,6 +196,7 @@ describe('useAppStore.removeEntry', () => {
           dayKey: todayKey(),
           foodId: null,
           servings: 1,
+          status: 'eaten',
         },
       ],
     });
@@ -220,6 +223,7 @@ describe('useAppStore.removeEntry', () => {
           dayKey: todayKey(),
           foodId: null,
           servings: 1,
+          status: 'eaten',
         },
       ],
     });
@@ -259,6 +263,7 @@ describe('useAppStore.updateEntry', () => {
     dayKey: '2026-04-13',
     foodId: 'food-1',
     servings: 1,
+    status: 'eaten',
   };
 
   it('updates via supabase and replaces the entry in local state immutably', async () => {
@@ -459,6 +464,7 @@ describe('useAppStore.reset', () => {
           dayKey: todayKey(),
           foodId: null,
           servings: 1,
+          status: 'eaten',
         },
       ],
       goals: { ...DEFAULT_GOALS, calorieGoal: 2500 },
@@ -488,6 +494,7 @@ describe('selectors', () => {
           fatG: null,
           loggedAt: '2026-04-12T08:00:00.000Z',
           dayKey: '2026-04-12',
+          status: 'eaten',
         },
         {
           id: '2',
@@ -498,6 +505,7 @@ describe('selectors', () => {
           fatG: null,
           loggedAt: new Date(2026, 3, 13, 8, 0).toISOString(),
           dayKey: today,
+          status: 'eaten',
         },
         {
           id: '3',
@@ -508,6 +516,7 @@ describe('selectors', () => {
           fatG: null,
           loggedAt: new Date(2026, 3, 13, 13, 0).toISOString(),
           dayKey: today,
+          status: 'eaten',
         },
       ] as MealEntry[],
     });
@@ -531,6 +540,7 @@ describe('selectors', () => {
           fatG: 10,
           loggedAt: '2026-04-13T08:00:00.000Z',
           dayKey: today,
+          status: 'eaten',
         },
         {
           id: '2',
@@ -541,6 +551,7 @@ describe('selectors', () => {
           fatG: 15,
           loggedAt: '2026-04-13T13:00:00.000Z',
           dayKey: today,
+          status: 'eaten',
         },
         {
           id: '3',
@@ -551,6 +562,7 @@ describe('selectors', () => {
           fatG: 9999,
           loggedAt: '2026-04-12T08:00:00.000Z',
           dayKey: '2026-04-12',
+          status: 'eaten',
         },
       ] as MealEntry[],
     });
@@ -577,6 +589,7 @@ describe('selectors', () => {
           dayKey: '2026-04-13',
           foodId: null,
           servings: 1,
+          status: 'eaten',
         },
       ],
       '2026-04-13'
@@ -606,6 +619,7 @@ describe('selectors', () => {
           fatG: null,
           loggedAt: new Date().toISOString(),
           dayKey: today,
+          status: 'eaten',
         },
         {
           id: '2',
@@ -616,6 +630,7 @@ describe('selectors', () => {
           fatG: null,
           loggedAt: '2026-04-12T09:00:00.000Z',
           dayKey: '2026-04-12',
+          status: 'eaten',
         },
         {
           id: '3',
@@ -626,6 +641,7 @@ describe('selectors', () => {
           fatG: null,
           loggedAt: '2026-04-12T13:00:00.000Z',
           dayKey: '2026-04-12',
+          status: 'eaten',
         },
         {
           id: '4',
@@ -636,6 +652,7 @@ describe('selectors', () => {
           fatG: null,
           loggedAt: '2026-04-10T13:00:00.000Z',
           dayKey: '2026-04-10',
+          status: 'eaten',
         },
       ] as MealEntry[],
     });
@@ -1136,6 +1153,7 @@ describe('selectRecentFoods', () => {
     dayKey: loggedAt.slice(0, 10),
     foodId,
     servings: 1,
+    status: 'eaten',
   });
 
   it('returns recently-logged distinct foods, newest first', () => {
@@ -1233,5 +1251,262 @@ describe('useAppStore.upsertFoodFromLookup', () => {
     expect(payload.source).toBe('usda');
     expect(payload.source_id).toBe('12345');
     expect(payload.name).toBe('Tyson — Chicken breast');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 16 — Meal planning
+// ---------------------------------------------------------------------------
+
+describe('useAppStore.addEntry — planned status', () => {
+  it('inserts with status=planned and rewrites day_key + logged_at to the target day', async () => {
+    signedIn('user-1');
+    enqueue({
+      data: {
+        id: 'planned-1',
+        user_id: 'user-1',
+        name: 'Chicken dinner',
+        kcal: 600,
+        protein_g: 50,
+        carbs_g: 40,
+        fat_g: 20,
+        logged_at: '2026-04-20T00:00:00.000Z',
+        day_key: '2026-04-20',
+        food_id: 'food-7',
+        meal_type: null,
+        status: 'planned',
+        servings: 1,
+        created_at: '2026-04-15T08:00:00.000Z',
+        updated_at: '2026-04-15T08:00:00.000Z',
+      },
+      error: null,
+    });
+
+    const entry = await useAppStore.getState().addEntry({
+      name: 'Chicken dinner',
+      calories: 600,
+      proteinG: 50,
+      carbsG: 40,
+      fatG: 20,
+      foodId: 'food-7',
+      servings: 1,
+      status: 'planned',
+      plannedForDayKey: '2026-04-20',
+    });
+
+    expect(entry.status).toBe('planned');
+    expect(entry.dayKey).toBe('2026-04-20');
+    expect(useAppStore.getState().entries[0].status).toBe('planned');
+
+    const insertCall = mock.__state.calls.find((c) => c.method === 'insert');
+    expect(insertCall).toBeDefined();
+    const payload = insertCall!.args[0] as Record<string, unknown>;
+    expect(payload.status).toBe('planned');
+    expect(payload.day_key).toBe('2026-04-20');
+    expect(typeof payload.logged_at).toBe('string');
+  });
+
+  it('defaults to status=eaten when not specified', async () => {
+    signedIn('user-1');
+    enqueue({
+      data: {
+        id: 'eaten-1',
+        user_id: 'user-1',
+        name: 'Oats',
+        kcal: 320,
+        protein_g: 12,
+        carbs_g: 55,
+        fat_g: 6,
+        logged_at: '2026-04-13T08:00:00.000Z',
+        day_key: todayKey(),
+        food_id: null,
+        meal_type: null,
+        status: 'eaten',
+        servings: 1,
+        created_at: '2026-04-13T08:00:00.000Z',
+        updated_at: '2026-04-13T08:00:00.000Z',
+      },
+      error: null,
+    });
+
+    const entry = await useAppStore.getState().addEntry({
+      name: 'Oats',
+      calories: 320,
+      proteinG: 12,
+      carbsG: 55,
+      fatG: 6,
+    });
+
+    expect(entry.status).toBe('eaten');
+    const insertCall = mock.__state.calls.find((c) => c.method === 'insert');
+    const payload = insertCall!.args[0] as Record<string, unknown>;
+    expect(payload.status).toBe('eaten');
+  });
+});
+
+describe('useAppStore.markEntryEaten', () => {
+  const plannedEntry: MealEntry = {
+    id: 'p-1',
+    name: 'Lunch',
+    calories: 500,
+    proteinG: 30,
+    carbsG: 50,
+    fatG: 15,
+    loggedAt: '2026-04-15T00:00:00.000Z',
+    dayKey: '2026-04-15',
+    foodId: null,
+    servings: 1,
+    status: 'planned',
+  };
+
+  it('updates status, re-selects the row, and replaces the entry in state', async () => {
+    useAppStore.setState({ entries: [plannedEntry] });
+    // 1st queue pop: update's awaited result (no .select()).
+    enqueue({ data: null, error: null });
+    // 2nd queue pop: the re-select .single() with the trigger-rewritten row.
+    enqueue({
+      data: {
+        id: 'p-1',
+        user_id: 'user-1',
+        name: 'Lunch',
+        kcal: 500,
+        protein_g: 30,
+        carbs_g: 50,
+        fat_g: 15,
+        logged_at: '2026-04-15T12:34:00.000Z',
+        day_key: '2026-04-15',
+        food_id: null,
+        meal_type: null,
+        status: 'eaten',
+        servings: 1,
+        created_at: '2026-04-15T08:00:00.000Z',
+        updated_at: '2026-04-15T12:34:00.000Z',
+      },
+      error: null,
+    });
+
+    const updated = await useAppStore.getState().markEntryEaten('p-1');
+    expect(updated.status).toBe('eaten');
+    expect(updated.loggedAt).toBe('2026-04-15T12:34:00.000Z');
+
+    const stateEntries = useAppStore.getState().entries;
+    expect(stateEntries).toHaveLength(1);
+    expect(stateEntries[0].status).toBe('eaten');
+    expect(stateEntries[0].loggedAt).toBe('2026-04-15T12:34:00.000Z');
+
+    const updateCall = mock.__state.calls.find((c) => c.method === 'update');
+    expect(updateCall).toBeDefined();
+    const payload = updateCall!.args[0] as Record<string, unknown>;
+    expect(payload.status).toBe('eaten');
+  });
+
+  it('records error and leaves state untouched when the update fails', async () => {
+    useAppStore.setState({ entries: [plannedEntry] });
+    enqueue({ data: null, error: { message: 'rls denied' } });
+
+    await expect(useAppStore.getState().markEntryEaten('p-1')).rejects.toThrow(
+      'rls denied'
+    );
+    expect(useAppStore.getState().entries[0].status).toBe('planned');
+    expect(useAppStore.getState().error).toMatch(/rls denied/);
+  });
+});
+
+describe('planned-entry selectors', () => {
+  const today = todayKey();
+
+  const tomorrowKey = (): string => {
+    const now = new Date();
+    const t = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(
+      t.getDate()
+    ).padStart(2, '0')}`;
+  };
+
+  const dayAfter = (): string => {
+    const now = new Date();
+    const t = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2);
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(
+      t.getDate()
+    ).padStart(2, '0')}`;
+  };
+
+  const makeEntry = (overrides: Partial<MealEntry>): MealEntry => ({
+    id: 'x',
+    name: 'Meal',
+    calories: 400,
+    proteinG: 20,
+    carbsG: 40,
+    fatG: 10,
+    loggedAt: `${today}T12:00:00.000Z`,
+    dayKey: today,
+    foodId: null,
+    servings: 1,
+    status: 'eaten',
+    ...overrides,
+  });
+
+  it('selectPlannedForToday returns planned entries dated today, sorted ascending', () => {
+    const entries: MealEntry[] = [
+      makeEntry({ id: 'a', status: 'planned', loggedAt: `${today}T18:00:00.000Z` }),
+      makeEntry({ id: 'b', status: 'eaten', loggedAt: `${today}T08:00:00.000Z` }),
+      makeEntry({ id: 'c', status: 'planned', loggedAt: `${today}T08:00:00.000Z` }),
+      makeEntry({
+        id: 'd',
+        status: 'planned',
+        dayKey: tomorrowKey(),
+        loggedAt: `${tomorrowKey()}T00:00:00.000Z`,
+      }),
+    ];
+
+    const result = selectPlannedForToday(entries);
+    expect(result.map((e) => e.id)).toEqual(['c', 'a']);
+  });
+
+  it('selectPlannedUpcoming returns planned entries on future days, ascending', () => {
+    const entries: MealEntry[] = [
+      makeEntry({ id: 'today-planned', status: 'planned' }),
+      makeEntry({
+        id: 'tomorrow',
+        status: 'planned',
+        dayKey: tomorrowKey(),
+        loggedAt: `${tomorrowKey()}T00:00:00.000Z`,
+      }),
+      makeEntry({
+        id: 'dayAfter',
+        status: 'planned',
+        dayKey: dayAfter(),
+        loggedAt: `${dayAfter()}T00:00:00.000Z`,
+      }),
+      makeEntry({
+        id: 'future-eaten',
+        status: 'eaten',
+        dayKey: tomorrowKey(),
+        loggedAt: `${tomorrowKey()}T00:00:00.000Z`,
+      }),
+    ];
+
+    const result = selectPlannedUpcoming(entries);
+    expect(result.map((e) => e.id)).toEqual(['tomorrow', 'dayAfter']);
+  });
+
+  it('selectTodayEntries excludes planned entries', () => {
+    const entries: MealEntry[] = [
+      makeEntry({ id: 'eaten', status: 'eaten' }),
+      makeEntry({ id: 'planned', status: 'planned' }),
+    ];
+    const result = selectTodayEntries(entries);
+    expect(result.map((e) => e.id)).toEqual(['eaten']);
+  });
+
+  it('selectTodayTotals does NOT count planned meals', () => {
+    const entries: MealEntry[] = [
+      makeEntry({ id: 'eaten', status: 'eaten', calories: 500, proteinG: 30 }),
+      makeEntry({ id: 'planned', status: 'planned', calories: 9999, proteinG: 9999 }),
+    ];
+    const totals = selectTodayTotals(entries);
+    expect(totals.calories).toBe(500);
+    expect(totals.proteinG).toBe(30);
+    expect(totals.entryCount).toBe(1);
   });
 });

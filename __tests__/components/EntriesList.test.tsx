@@ -15,6 +15,7 @@ const sample: MealEntry[] = [
     dayKey: '2026-04-13',
     foodId: null,
     servings: 1,
+    status: 'eaten',
   },
   {
     id: 'e2',
@@ -27,6 +28,7 @@ const sample: MealEntry[] = [
     dayKey: '2026-04-13',
     foodId: null,
     servings: 1,
+    status: 'eaten',
   },
 ];
 
@@ -77,6 +79,7 @@ describe('EntriesList', () => {
       dayKey: '2026-04-13',
       foodId: null,
       servings: 1,
+      status: 'eaten',
     };
     const { getByTestId } = render(<EntriesList entries={[blatantEntry]} />);
     expect(getByTestId('entry-badge-bad')).toBeTruthy();

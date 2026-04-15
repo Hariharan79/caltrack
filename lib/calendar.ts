@@ -88,6 +88,7 @@ export function buildTotalsByDay(
 ): Map<string, DailyTotals> {
   const out = new Map<string, DailyTotals>();
   for (const entry of entries) {
+    if (entry.status === 'planned') continue;
     const existing = out.get(entry.dayKey);
     if (existing) {
       existing.calories += entry.calories;

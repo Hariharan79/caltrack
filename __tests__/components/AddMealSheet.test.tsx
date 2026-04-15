@@ -142,6 +142,8 @@ describe('AddMealSheet — Quick add tab', () => {
       proteinG: 12,
       carbsG: null,
       fatG: null,
+      status: 'eaten',
+      plannedForDayKey: undefined,
     });
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
@@ -159,6 +161,7 @@ describe('AddMealSheet — edit mode', () => {
     dayKey: '2026-04-13',
     foodId: 'food-1',
     servings: 1,
+    status: 'eaten',
   };
 
   it('prefills the Quick add form from initialEntry and shows Edit meal title', () => {
@@ -204,6 +207,33 @@ describe('AddMealSheet — edit mode', () => {
     expect(onClose).toHaveBeenCalled();
     expect(mockUpdateEntry).not.toHaveBeenCalled();
     expect(mockAddEntry).not.toHaveBeenCalled();
+  });
+});
+
+describe('AddMealSheet — plan mode', () => {
+  it('quick-add save routes through addEntry with status=planned and a future plannedForDayKey', async () => {
+    mockAddEntry.mockResolvedValue({ id: 'planned-1' });
+    const onClose = jest.fn();
+    const { getByTestId } = render(<AddMealSheet visible={true} onClose={onClose} />);
+
+    // Toggle Plan mode and enter the quick-add form.
+    fireEvent.press(getByTestId('mode-plan'));
+    // The plan-day picker renders; first chip is selected by default.
+    expect(getByTestId('plan-day-picker')).toBeTruthy();
+
+    fireEvent.press(getByTestId('tab-quick'));
+    fireEvent.changeText(getByTestId('meal-name'), 'Chicken dinner');
+    fireEvent.changeText(getByTestId('meal-calories'), '600');
+    fireEvent.press(getByTestId('meal-save'));
+
+    await waitFor(() => expect(mockAddEntry).toHaveBeenCalled());
+    const payload = mockAddEntry.mock.calls[0][0];
+    expect(payload.name).toBe('Chicken dinner');
+    expect(payload.calories).toBe(600);
+    expect(payload.status).toBe('planned');
+    expect(typeof payload.plannedForDayKey).toBe('string');
+    expect(payload.plannedForDayKey).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 });
 

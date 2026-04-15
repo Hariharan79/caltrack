@@ -9,6 +9,7 @@ import {
   useAppStore,
   selectTodayEntries,
   selectTodayTotals,
+  selectPlannedForToday,
 } from '@/lib/store';
 import { TotalsCard } from '@/components/TotalsCard';
 import { EntriesList } from '@/components/EntriesList';
@@ -37,15 +38,47 @@ export default function TodayScreen() {
   const goals = useAppStore((s) => s.goals);
   const rawEntries = useAppStore((s) => s.entries);
   const removeEntry = useAppStore((s) => s.removeEntry);
+  const markEntryEaten = useAppStore((s) => s.markEntryEaten);
 
   const totals = useMemo(() => selectTodayTotals(rawEntries), [rawEntries]);
   const entries = useMemo(() => selectTodayEntries(rawEntries), [rawEntries]);
+  const plannedToday = useMemo(() => selectPlannedForToday(rawEntries), [rawEntries]);
 
   const handleRemoveEntry = async (id: string) => {
     try {
       await removeEntry(id);
     } catch (err) {
       Alert.alert(COPY.today.deleteFailedTitle, err instanceof Error ? err.message : COPY.errors.unknown);
+    }
+  };
+
+  const handleRemovePlanned = (id: string) => {
+    const target = plannedToday.find((e) => e.id === id);
+    const name = target?.name ?? '';
+    Alert.alert(
+      COPY.today.deletePlannedConfirmTitle,
+      COPY.today.deletePlannedConfirmBody(name),
+      [
+        { text: COPY.today.deletePlannedConfirmCancel, style: 'cancel' },
+        {
+          text: COPY.today.deletePlannedConfirmAction,
+          style: 'destructive',
+          onPress: () => {
+            void handleRemoveEntry(id);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleMarkEaten = async (id: string) => {
+    try {
+      await markEntryEaten(id);
+    } catch (err) {
+      Alert.alert(
+        COPY.today.markEatenFailedTitle,
+        err instanceof Error ? err.message : COPY.errors.unknown
+      );
     }
   };
 
@@ -103,6 +136,20 @@ export default function TodayScreen() {
         </View>
 
         <TotalsCard totals={totals} goals={goals} />
+
+        {plannedToday.length > 0 ? (
+          <>
+            <Text style={styles.sectionTitle}>{COPY.today.sectionPlanned}</Text>
+            <EntriesList
+              entries={plannedToday}
+              onDelete={handleRemovePlanned}
+              onPressEntry={handlePressEntry}
+              onMarkEaten={handleMarkEaten}
+              variant="planned"
+              testID="planned-list"
+            />
+          </>
+        ) : null}
 
         <Text style={styles.sectionTitle}>{COPY.today.sectionMeals}</Text>
         <EntriesList

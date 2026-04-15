@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type {
   MealEntry,
+  MealEntryStatus,
   NewMealInput,
   Goals,
   DailyTotals,
@@ -12,7 +13,7 @@ import type {
 } from '@/types';
 import type { NormalizedFood } from './foodNormalizers';
 import type { Database, TablesUpdate } from '../types/db';
-import { dayKey, todayKey } from './date';
+import { dayKey, parseDayKey, todayKey } from './date';
 import { supabase } from './supabase';
 
 type LogEntryRow = Database['public']['Tables']['log_entries']['Row'];
@@ -33,6 +34,7 @@ export interface AppState {
   addEntry: (input: NewMealInput) => Promise<MealEntry>;
   removeEntry: (id: string) => Promise<void>;
   updateEntry: (id: string, patch: Partial<MealEntry>) => Promise<MealEntry>;
+  markEntryEaten: (id: string) => Promise<MealEntry>;
   updateGoals: (patch: Partial<Goals>) => Promise<void>;
   addFood: (input: NewFoodInput) => Promise<Food>;
   updateFood: (id: string, patch: FoodUpdateInput) => Promise<Food>;
@@ -72,6 +74,36 @@ function rowToEntry(row: LogEntryRow): MealEntry {
     dayKey: row.day_key,
     foodId: row.food_id,
     servings: Number(row.servings),
+    status: normalizeStatus(row.status),
+  };
+}
+
+function normalizeStatus(raw: string): MealEntryStatus {
+  return raw === 'planned' ? 'planned' : 'eaten';
+}
+
+/**
+ * Resolves the (day_key, logged_at) pair for an inserted log entry.
+ * For eaten entries we stamp with `now()`. For planned entries we write
+ * start-of-day local time on the target future day so `logged_at` sorts
+ * planned meals in day order, and the DB trigger will rewrite it to
+ * `now()` when the row flips to `eaten`.
+ */
+function resolveEntryTimestamps(
+  input: NewMealInput,
+  status: MealEntryStatus
+): { loggedAt: string; dayKey: string } {
+  if (status === 'planned' && input.plannedForDayKey) {
+    const start = parseDayKey(input.plannedForDayKey);
+    return {
+      loggedAt: start.toISOString(),
+      dayKey: input.plannedForDayKey,
+    };
+  }
+  const now = new Date();
+  return {
+    loggedAt: now.toISOString(),
+    dayKey: dayKey(now),
   };
 }
 
@@ -186,7 +218,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
   addEntry: async (input) => {
     const userId = await requireUserId();
-    const now = new Date();
+    const status: MealEntryStatus = input.status ?? 'eaten';
+    const { loggedAt, dayKey: resolvedDayKey } = resolveEntryTimestamps(input, status);
     const { data, error } = await supabase
       .from('log_entries')
       .insert({
@@ -196,10 +229,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
         protein_g: input.proteinG,
         carbs_g: input.carbsG,
         fat_g: input.fatG,
-        logged_at: now.toISOString(),
-        day_key: dayKey(now),
+        logged_at: loggedAt,
+        day_key: resolvedDayKey,
         food_id: input.foodId ?? null,
         servings: input.servings ?? 1,
+        status,
       })
       .select()
       .single();
@@ -242,6 +276,39 @@ export const useAppStore = create<AppState>()((set, get) => ({
       entries: state.entries.map((e) => (e.id === id ? entry : e)),
     }));
     return entry;
+  },
+
+  markEntryEaten: async (id) => {
+    try {
+      const updatePatch: TablesUpdate<'log_entries'> = { status: 'eaten' };
+      const { error: updateError } = await supabase
+        .from('log_entries')
+        .update(updatePatch)
+        .eq('id', id);
+      if (updateError) throw new Error(updateError.message);
+
+      // Re-select the row so we pick up the logged_at value that the
+      // `log_entry_status_stamp` trigger just rewrote to now().
+      const { data, error: selectError } = await supabase
+        .from('log_entries')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (selectError) throw new Error(selectError.message);
+      if (!data) throw new Error('Mark eaten returned no row');
+
+      const entry = rowToEntry(data);
+      set((state) => ({
+        entries: state.entries.map((e) => (e.id === id ? entry : e)),
+        error: null,
+      }));
+      return entry;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Mark eaten failed';
+      set({ error: message });
+      throw err;
+    }
   },
 
   updateGoals: async (patch) => {
@@ -384,15 +451,31 @@ export const useAppStore = create<AppState>()((set, get) => ({
 export function selectTodayEntries(entries: readonly MealEntry[]): MealEntry[] {
   const today = todayKey();
   return entries
-    .filter((e) => e.dayKey === today)
+    .filter((e) => e.dayKey === today && e.status === 'eaten')
     .sort((a, b) => b.loggedAt.localeCompare(a.loggedAt));
+}
+
+export function selectPlannedForToday(entries: readonly MealEntry[]): MealEntry[] {
+  const today = todayKey();
+  return entries
+    .filter((e) => e.dayKey === today && e.status === 'planned')
+    .sort((a, b) => a.loggedAt.localeCompare(b.loggedAt));
+}
+
+export function selectPlannedUpcoming(entries: readonly MealEntry[]): MealEntry[] {
+  const today = todayKey();
+  return entries
+    .filter((e) => e.status === 'planned' && e.dayKey > today)
+    .sort((a, b) => a.dayKey.localeCompare(b.dayKey) || a.loggedAt.localeCompare(b.loggedAt));
 }
 
 export function computeDailyTotals(
   entries: readonly MealEntry[],
   targetDayKey: string
 ): DailyTotals {
-  const dayEntries = entries.filter((e) => e.dayKey === targetDayKey);
+  const dayEntries = entries.filter(
+    (e) => e.dayKey === targetDayKey && e.status !== 'planned'
+  );
   return dayEntries.reduce<DailyTotals>(
     (acc, e) => ({
       dayKey: targetDayKey,
@@ -467,6 +550,7 @@ export function selectHistory(entries: readonly MealEntry[]): HistoryDay[] {
   const byDay = new Map<string, MealEntry[]>();
   for (const entry of entries) {
     if (entry.dayKey === today) continue;
+    if (entry.status === 'planned') continue;
     const existing = byDay.get(entry.dayKey);
     if (existing) {
       existing.push(entry);

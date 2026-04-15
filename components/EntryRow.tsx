@@ -5,14 +5,25 @@ import type { MealEntry } from '@/types';
 import { formatTime } from '@/lib/date';
 import { checkMacroSanity } from '@/lib/nutrition';
 
+export type EntryRowVariant = 'default' | 'planned';
+
 interface EntryRowProps {
   entry: MealEntry;
   onDelete?: (id: string) => void;
   onPress?: (entry: MealEntry) => void;
+  onMarkEaten?: (id: string) => void;
   showTime?: boolean;
+  variant?: EntryRowVariant;
 }
 
-export function EntryRow({ entry, onDelete, onPress, showTime = true }: EntryRowProps) {
+export function EntryRow({
+  entry,
+  onDelete,
+  onPress,
+  onMarkEaten,
+  showTime = true,
+  variant = 'default',
+}: EntryRowProps) {
   const macros: string[] = [];
   if (entry.proteinG != null) macros.push(`${Math.round(entry.proteinG)}P`);
   if (entry.carbsG != null) macros.push(`${Math.round(entry.carbsG)}C`);
@@ -26,6 +37,9 @@ export function EntryRow({ entry, onDelete, onPress, showTime = true }: EntryRow
     fatG: entry.fatG,
   });
   const showBlatantBadge = sanity.severity === 'blatant';
+
+  const isPlanned = variant === 'planned';
+  const rowStyle = [styles.row, isPlanned && styles.rowPlanned];
 
   const inner = (
     <>
@@ -45,8 +59,8 @@ export function EntryRow({ entry, onDelete, onPress, showTime = true }: EntryRow
           ) : null}
         </View>
         <Text style={styles.meta}>
-          {showTime ? `${formatTime(entry.loggedAt)}` : ''}
-          {showTime && macroLine ? ' · ' : ''}
+          {showTime && !isPlanned ? `${formatTime(entry.loggedAt)}` : ''}
+          {showTime && !isPlanned && macroLine ? ' · ' : ''}
           {macroLine}
         </Text>
       </View>
@@ -54,6 +68,23 @@ export function EntryRow({ entry, onDelete, onPress, showTime = true }: EntryRow
         <Text style={styles.calories}>{entry.calories}</Text>
         <Text style={styles.caloriesUnit}>kcal</Text>
       </View>
+      {isPlanned ? (
+        <View style={styles.plannedPill} testID={`entry-planned-pill-${entry.id}`}>
+          <Text style={styles.plannedPillText}>{COPY.today.plannedBadge}</Text>
+        </View>
+      ) : null}
+      {isPlanned && onMarkEaten ? (
+        <Pressable
+          onPress={() => onMarkEaten(entry.id)}
+          style={styles.markEaten}
+          accessibilityRole="button"
+          accessibilityLabel={COPY.today.markEatenLabel(entry.name)}
+          testID={`mark-eaten-${entry.id}`}
+          hitSlop={8}
+        >
+          <Text style={styles.markEatenText}>{COPY.today.markEatenButton}</Text>
+        </Pressable>
+      ) : null}
       {onDelete ? (
         <Pressable
           onPress={() => onDelete(entry.id)}
@@ -73,7 +104,7 @@ export function EntryRow({ entry, onDelete, onPress, showTime = true }: EntryRow
     return (
       <Pressable
         onPress={() => onPress(entry)}
-        style={styles.row}
+        style={rowStyle}
         accessibilityRole="button"
         accessibilityLabel={COPY.entries.editLabel(entry.name)}
         testID={`entry-row-${entry.id}`}
@@ -84,7 +115,7 @@ export function EntryRow({ entry, onDelete, onPress, showTime = true }: EntryRow
   }
 
   return (
-    <View style={styles.row} testID={`entry-row-${entry.id}`}>
+    <View style={rowStyle} testID={`entry-row-${entry.id}`}>
       {inner}
     </View>
   );
@@ -148,5 +179,33 @@ const styles = StyleSheet.create({
     color: COLORS.protein,
     fontSize: TYPOGRAPHY.size.sm,
     fontWeight: TYPOGRAPHY.weight.medium,
+  },
+  rowPlanned: {
+    backgroundColor: COLORS.backgroundAlt,
+    borderStyle: 'dashed',
+  },
+  plannedPill: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.border,
+  },
+  plannedPillText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.size.xs,
+    fontWeight: TYPOGRAPHY.weight.medium,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  markEaten: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+  },
+  markEatenText: {
+    color: COLORS.primary,
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: TYPOGRAPHY.weight.semibold,
   },
 });

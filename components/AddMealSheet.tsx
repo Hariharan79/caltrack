@@ -19,10 +19,35 @@ import { PrimaryButton } from './PrimaryButton';
 import { Stepper } from './Stepper';
 import { useAppStore, searchFoods, selectRecentFoods } from '@/lib/store';
 import { searchByText } from '@/lib/foodLookup';
+import { dayKey } from '@/lib/date';
 import type { NormalizedFood } from '@/lib/foodNormalizers';
 import type { Food, MealEntry, NewMealInput } from '@/types';
 
 type Tab = 'log' | 'quick';
+type Mode = 'now' | 'plan';
+
+interface PlanDayChoice {
+  key: string;
+  label: string;
+}
+
+const UPCOMING_DAY_COUNT = 7;
+
+function buildUpcomingDays(now: Date = new Date()): PlanDayChoice[] {
+  const out: PlanDayChoice[] = [];
+  for (let offset = 1; offset <= UPCOMING_DAY_COUNT; offset++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+    const key = dayKey(d);
+    let label: string;
+    if (offset === 1) {
+      label = COPY.log.sheet.planDayTomorrow;
+    } else {
+      label = d.toLocaleDateString(undefined, { weekday: 'short' });
+    }
+    out.push({ key, label });
+  }
+  return out;
+}
 
 type LogChoice =
   | { kind: 'lookup'; food: NormalizedFood }
@@ -142,6 +167,15 @@ export function AddMealSheet({
   const isEdit = initialEntry != null;
 
   const [tab, setTab] = useState<Tab>(isEdit ? 'quick' : 'log');
+  const [mode, setMode] = useState<Mode>('now');
+  // Upcoming 7-day chips. Rebuilt on each sheet open so the day labels stay
+  // accurate if the app is left sitting across midnight.
+  const [upcomingDays, setUpcomingDays] = useState<PlanDayChoice[]>(() =>
+    buildUpcomingDays()
+  );
+  const [planDayKey, setPlanDayKey] = useState<string>(
+    () => buildUpcomingDays()[0]?.key ?? ''
+  );
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [usdaResults, setUsdaResults] = useState<NormalizedFood[]>([]);
@@ -161,6 +195,10 @@ export function AddMealSheet({
 
   const reset = useCallback(() => {
     setTab(isEdit ? 'quick' : 'log');
+    setMode('now');
+    const refreshedDays = buildUpcomingDays();
+    setUpcomingDays(refreshedDays);
+    setPlanDayKey(refreshedDays[0]?.key ?? '');
     setQuery('');
     setDebouncedQuery('');
     setUsdaResults([]);
@@ -183,6 +221,18 @@ export function AddMealSheet({
       setSelected(null);
     }
   }, [visible, initialEntry]);
+
+  // Refresh upcoming-day chips whenever the sheet opens — prevents stale
+  // labels if the app is left sitting across midnight.
+  useEffect(() => {
+    if (!visible) return;
+    const refreshed = buildUpcomingDays();
+    setUpcomingDays(refreshed);
+    setPlanDayKey((prev) => {
+      if (refreshed.some((d) => d.key === prev)) return prev;
+      return refreshed[0]?.key ?? '';
+    });
+  }, [visible]);
 
   // When the parent seeds a scanned food (after returning from the scanner),
   // jump straight to the Log tab's servings-stepper view with that food
@@ -273,6 +323,7 @@ export function AddMealSheet({
   const handleLogSave = async () => {
     if (!selected || submitting) return;
     setSubmitting(true);
+    const isPlan = mode === 'plan';
     try {
       const food =
         selected.kind === 'lookup'
@@ -286,12 +337,14 @@ export function AddMealSheet({
         fatG: scaleMacro(food.fatGPerServing, servings),
         foodId: food.id,
         servings,
+        status: isPlan ? 'planned' : 'eaten',
+        plannedForDayKey: isPlan ? planDayKey : undefined,
       });
       reset();
       onClose();
     } catch (err) {
       Alert.alert(
-        COPY.log.sheet.saveFailedTitle,
+        isPlan ? COPY.log.sheet.planSaveFailedTitle : COPY.log.sheet.saveFailedTitle,
         err instanceof Error ? err.message : COPY.errors.unknown
       );
       setSubmitting(false);
@@ -302,6 +355,7 @@ export function AddMealSheet({
     setDraftSubmitted(true);
     if (!draftValidation.parsed || submitting) return;
     setSubmitting(true);
+    const isPlan = mode === 'plan';
     try {
       if (initialEntry) {
         await updateEntry(initialEntry.id, {
@@ -312,13 +366,22 @@ export function AddMealSheet({
           fatG: draftValidation.parsed.fatG,
         });
       } else {
-        await addEntry(draftValidation.parsed);
+        await addEntry({
+          ...draftValidation.parsed,
+          status: isPlan ? 'planned' : 'eaten',
+          plannedForDayKey: isPlan ? planDayKey : undefined,
+        });
       }
       reset();
       onClose();
     } catch (err) {
+      const failedTitle = initialEntry
+        ? COPY.log.sheet.updateFailedTitle
+        : isPlan
+          ? COPY.log.sheet.planSaveFailedTitle
+          : COPY.log.sheet.saveFailedTitle;
       Alert.alert(
-        initialEntry ? COPY.log.sheet.updateFailedTitle : COPY.log.sheet.saveFailedTitle,
+        failedTitle,
         err instanceof Error ? err.message : COPY.errors.unknown
       );
       setSubmitting(false);
@@ -351,20 +414,43 @@ export function AddMealSheet({
           </View>
 
           {!isEdit ? (
-            <View style={styles.tabs}>
-              <TabButton
-                label={COPY.log.sheet.tabLog}
-                active={tab === 'log'}
-                onPress={() => setTab('log')}
-                testID="tab-log"
-              />
-              <TabButton
-                label={COPY.log.sheet.tabQuick}
-                active={tab === 'quick'}
-                onPress={() => setTab('quick')}
-                testID="tab-quick"
-              />
-            </View>
+            <>
+              <View style={styles.modeToggle}>
+                <ModeButton
+                  label={COPY.log.sheet.modeNow}
+                  active={mode === 'now'}
+                  onPress={() => setMode('now')}
+                  testID="mode-now"
+                />
+                <ModeButton
+                  label={COPY.log.sheet.modePlan}
+                  active={mode === 'plan'}
+                  onPress={() => setMode('plan')}
+                  testID="mode-plan"
+                />
+              </View>
+              {mode === 'plan' ? (
+                <PlanDayPicker
+                  days={upcomingDays}
+                  selected={planDayKey}
+                  onSelect={setPlanDayKey}
+                />
+              ) : null}
+              <View style={styles.tabs}>
+                <TabButton
+                  label={COPY.log.sheet.tabLog}
+                  active={tab === 'log'}
+                  onPress={() => setTab('log')}
+                  testID="tab-log"
+                />
+                <TabButton
+                  label={COPY.log.sheet.tabQuick}
+                  active={tab === 'quick'}
+                  onPress={() => setTab('quick')}
+                  testID="tab-quick"
+                />
+              </View>
+            </>
           ) : null}
 
           {tab === 'log' && !isEdit ? (
@@ -376,6 +462,7 @@ export function AddMealSheet({
                 onBack={handleClearSelection}
                 onSave={handleLogSave}
                 submitting={submitting}
+                isPlan={mode === 'plan'}
               />
             ) : (
               <LogSearchView
@@ -399,6 +486,7 @@ export function AddMealSheet({
               onSave={handleQuickSave}
               submitting={submitting}
               isEdit={isEdit}
+              isPlan={mode === 'plan'}
             />
           )}
         </View>
@@ -425,6 +513,67 @@ function TabButton({ label, active, onPress, testID }: TabButtonProps) {
     >
       <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{label}</Text>
     </Pressable>
+  );
+}
+
+interface ModeButtonProps {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  testID: string;
+}
+
+function ModeButton({ label, active, onPress, testID }: ModeButtonProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={label}
+      style={[styles.modeButton, active && styles.modeButtonActive]}
+      testID={testID}
+    >
+      <Text style={[styles.modeLabel, active && styles.modeLabelActive]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+interface PlanDayPickerProps {
+  days: readonly PlanDayChoice[];
+  selected: string;
+  onSelect: (key: string) => void;
+}
+
+function PlanDayPicker({ days, selected, onSelect }: PlanDayPickerProps) {
+  return (
+    <View style={styles.planPickerWrap} testID="plan-day-picker">
+      <Text style={styles.planPickerLabel}>{COPY.log.sheet.planFor}</Text>
+      <ScrollView
+        horizontal
+        keyboardShouldPersistTaps="handled"
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.planPickerScroll}
+      >
+        {days.map((day) => {
+          const active = day.key === selected;
+          return (
+            <Pressable
+              key={day.key}
+              onPress={() => onSelect(day.key)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={day.label}
+              style={[styles.planChip, active && styles.planChipActive]}
+              testID={`plan-day-${day.key}`}
+            >
+              <Text style={[styles.planChipLabel, active && styles.planChipLabelActive]}>
+                {day.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -588,6 +737,7 @@ interface SelectedFoodViewProps {
   onBack: () => void;
   onSave: () => void;
   submitting: boolean;
+  isPlan: boolean;
 }
 
 function SelectedFoodView({
@@ -597,6 +747,7 @@ function SelectedFoodView({
   onBack,
   onSave,
   submitting,
+  isPlan,
 }: SelectedFoodViewProps) {
   const food = selected.food;
   const isLookup = selected.kind === 'lookup';
@@ -657,7 +808,13 @@ function SelectedFoodView({
 
       <View style={styles.footer}>
         <PrimaryButton
-          label={submitting ? COPY.log.selected.saving : COPY.log.selected.logButton}
+          label={
+            submitting
+              ? COPY.log.selected.saving
+              : isPlan
+                ? COPY.log.sheet.planSaveButton
+                : COPY.log.selected.logButton
+          }
           onPress={onSave}
           disabled={submitting}
           testID="log-save"
@@ -683,10 +840,23 @@ interface QuickAddViewProps {
   onSave: () => void;
   submitting: boolean;
   isEdit: boolean;
+  isPlan: boolean;
 }
 
-function QuickAddView({ draft, errors, onUpdate, onSave, submitting, isEdit }: QuickAddViewProps) {
-  const defaultLabel = isEdit ? COPY.log.quickAdd.saveEdit : COPY.log.quickAdd.saveNew;
+function QuickAddView({
+  draft,
+  errors,
+  onUpdate,
+  onSave,
+  submitting,
+  isEdit,
+  isPlan,
+}: QuickAddViewProps) {
+  const defaultLabel = isEdit
+    ? COPY.log.quickAdd.saveEdit
+    : isPlan
+      ? COPY.log.sheet.planSaveButton
+      : COPY.log.quickAdd.saveNew;
   const busyLabel = COPY.log.quickAdd.saving;
   return (
     <View style={styles.flex}>
@@ -785,6 +955,70 @@ const styles = StyleSheet.create({
   title: {
     color: COLORS.text,
     fontSize: TYPOGRAPHY.size.lg,
+    fontWeight: TYPOGRAPHY.weight.semibold,
+  },
+  modeToggle: {
+    flexDirection: 'row',
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+    padding: 4,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    gap: 4,
+  },
+  modeButton: {
+    flex: 1,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.sm,
+    alignItems: 'center',
+  },
+  modeButtonActive: {
+    backgroundColor: COLORS.backgroundAlt,
+  },
+  modeLabel: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: TYPOGRAPHY.weight.medium,
+  },
+  modeLabelActive: {
+    color: COLORS.text,
+    fontWeight: TYPOGRAPHY.weight.semibold,
+  },
+  planPickerWrap: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+  },
+  planPickerLabel: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: TYPOGRAPHY.weight.medium,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: SPACING.xs,
+  },
+  planPickerScroll: {
+    gap: SPACING.xs,
+    paddingRight: SPACING.lg,
+  },
+  planChip: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.border,
+  },
+  planChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  planChipLabel: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: TYPOGRAPHY.weight.medium,
+  },
+  planChipLabelActive: {
+    color: COLORS.text,
     fontWeight: TYPOGRAPHY.weight.semibold,
   },
   tabs: {

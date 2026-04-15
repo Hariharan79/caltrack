@@ -1,3 +1,5 @@
+export type MealEntryStatus = 'planned' | 'eaten';
+
 export interface MealEntry {
   id: string;
   name: string;
@@ -9,6 +11,7 @@ export interface MealEntry {
   dayKey: string;
   foodId: string | null;
   servings: number;
+  status: MealEntryStatus;
 }
 
 export interface NewMealInput {
@@ -19,6 +22,13 @@ export interface NewMealInput {
   fatG: number | null;
   foodId?: string | null;
   servings?: number;
+  status?: MealEntryStatus;
+  /**
+   * When `status === 'planned'`, overrides both `day_key` and `logged_at`
+   * with the target future date (start-of-day local time). Ignored for
+   * `eaten` entries (they use `now()` as before).
+   */
+  plannedForDayKey?: string;
 }
 
 export interface Goals {

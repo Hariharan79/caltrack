@@ -102,6 +102,7 @@ describe('buildTotalsByDay', () => {
         dayKey: '2026-04-12',
         foodId: null,
         servings: 1,
+        status: 'eaten',
       },
       {
         id: '2',
@@ -114,6 +115,7 @@ describe('buildTotalsByDay', () => {
         dayKey: '2026-04-12',
         foodId: null,
         servings: 1,
+        status: 'eaten',
       },
       {
         id: '3',
@@ -126,6 +128,7 @@ describe('buildTotalsByDay', () => {
         dayKey: '2026-04-13',
         foodId: null,
         servings: 1,
+        status: 'eaten',
       },
     ];
     const map = buildTotalsByDay(entries);
