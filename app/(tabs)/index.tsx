@@ -14,11 +14,14 @@ import {
 import { TotalsCard } from '@/components/TotalsCard';
 import { EntriesList } from '@/components/EntriesList';
 import { AddMealSheet } from '@/components/AddMealSheet';
+import { AppHeader } from '@/components/AppHeader';
+import { WeekStreak } from '@/components/WeekStreak';
+import { Avatar } from '@/components/Avatar';
 import { setScanDraft, takeScanDraft } from '@/lib/scanDraft';
 import type { NormalizedFood } from '@/lib/foodNormalizers';
 import type { MealEntry } from '@/types';
 
-const TAB_BAR_PADDING = 96;
+const TAB_BAR_PADDING = 110;
 
 function todayHeaderLabel(now: Date = new Date()): string {
   return now.toLocaleDateString(undefined, {
@@ -121,6 +124,10 @@ export default function TodayScreen() {
     }, [])
   );
 
+  const goToProfile = useCallback(() => {
+    router.push('/profile');
+  }, [router]);
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
@@ -130,10 +137,16 @@ export default function TodayScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Text style={styles.greeting}>{COPY.today.heading}</Text>
-          <Text style={styles.date}>{todayHeaderLabel()}</Text>
-        </View>
+        <AppHeader
+          title={COPY.today.heading}
+          subtitle={todayHeaderLabel()}
+          trailing={<Avatar name="Y" size={40} testID="profile-avatar" />}
+          onTrailingPress={goToProfile}
+          trailingLabel={COPY.today.profileLabel}
+          testID="today-header"
+        />
+
+        <WeekStreak entries={rawEntries} />
 
         <TotalsCard totals={totals} goals={goals} />
 
@@ -157,6 +170,7 @@ export default function TodayScreen() {
           onDelete={handleRemoveEntry}
           onPressEntry={handlePressEntry}
           emptyText={COPY.today.emptyEntries}
+          groupByMeal
         />
       </ScrollView>
 
@@ -166,12 +180,12 @@ export default function TodayScreen() {
           setScannedFood(null);
           setSheetVisible(true);
         }}
-        style={[styles.fab, { bottom: TAB_BAR_PADDING + insets.bottom - 32 }]}
+        style={[styles.fab, { bottom: TAB_BAR_PADDING + insets.bottom - 34 }]}
         accessibilityRole="button"
         accessibilityLabel={COPY.today.fabLabel}
         testID="log-meal-fab"
       >
-        <Plus color={COLORS.text} size={28} weight="bold" />
+        <Plus color={COLORS.text} size={30} weight="bold" />
       </Pressable>
 
       <AddMealSheet
@@ -194,21 +208,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.lg,
   },
-  header: {
-    marginBottom: SPACING.lg,
-  },
-  greeting: {
-    color: COLORS.text,
-    fontSize: TYPOGRAPHY.size.display,
-    fontWeight: TYPOGRAPHY.weight.bold,
-  },
-  date: {
-    color: COLORS.textSecondary,
-    fontSize: TYPOGRAPHY.size.md,
-    marginTop: 2,
-  },
   sectionTitle: {
-    color: COLORS.textSecondary,
+    color: COLORS.textTertiary,
     fontSize: TYPOGRAPHY.size.sm,
     fontWeight: TYPOGRAPHY.weight.medium,
     textTransform: 'uppercase',
@@ -218,19 +219,19 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    right: SPACING.xl,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    alignSelf: 'center',
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.border,
+    elevation: 10,
+    borderWidth: 2,
+    borderColor: COLORS.background,
   },
 });

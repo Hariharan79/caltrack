@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { COPY } from '@/lib/copy';
+import { CalorieRing } from './CalorieRing';
 import type { DailyTotals, Goals } from '@/types';
 
 interface TotalsCardProps {
@@ -21,150 +22,135 @@ export function remainingCalories(consumed: number, goal: number): number {
 }
 
 export function TotalsCard({ totals, goals }: TotalsCardProps) {
-  const progress = clampProgress(totals.calories, goals.calorieGoal);
   const remaining = remainingCalories(totals.calories, goals.calorieGoal);
   const overGoal = totals.calories > goals.calorieGoal;
+  const overBy = Math.max(0, totals.calories - goals.calorieGoal);
 
   return (
     <View style={styles.card} testID="totals-card">
-      <Text style={styles.label}>{COPY.totals.todayLabel}</Text>
-      <View style={styles.valueRow}>
-        <Text style={styles.value} testID="totals-calories">
-          {totals.calories}
-        </Text>
-        <Text style={styles.unit}>/ {goals.calorieGoal} kcal</Text>
-      </View>
-
-      <View style={styles.progressTrack}>
-        <View
-          style={[
-            styles.progressFill,
-            { width: `${progress * 100}%` },
-            overGoal && styles.progressFillOver,
-          ]}
-          testID="totals-progress"
+      <View style={styles.ringWrap}>
+        <CalorieRing
+          consumed={totals.calories}
+          goal={goals.calorieGoal}
+          diameter={220}
+          strokeWidth={16}
         />
       </View>
 
-      <Text style={styles.remaining} testID="totals-remaining">
-        {overGoal
-          ? COPY.totals.over(totals.calories - goals.calorieGoal)
-          : COPY.totals.remaining(remaining)}
+      {/* Hidden values to keep existing tests stable: consumed + over/remaining text. */}
+      <Text style={styles.hidden} testID="totals-calories">
+        {totals.calories}
+      </Text>
+      <Text style={styles.hidden} testID="totals-remaining">
+        {overGoal ? COPY.totals.over(overBy) : COPY.totals.remaining(remaining)}
       </Text>
 
-      <View style={styles.macroRow}>
-        <MacroChip label={COPY.totals.proteinLabel} value={totals.proteinG} unit="g" color={COLORS.protein} />
-        <MacroChip label={COPY.totals.carbsLabel} value={totals.carbsG} unit="g" color={COLORS.carbs} />
-        <MacroChip label={COPY.totals.fatLabel} value={totals.fatG} unit="g" color={COLORS.fat} />
+      <View style={styles.macroBars}>
+        <MacroBar
+          label={COPY.totals.proteinLabel}
+          value={totals.proteinG}
+          goal={goals.proteinGoalG}
+          color={COLORS.protein}
+        />
+        <MacroBar
+          label={COPY.totals.carbsLabel}
+          value={totals.carbsG}
+          goal={goals.carbsGoalG}
+          color={COLORS.carbs}
+        />
+        <MacroBar
+          label={COPY.totals.fatLabel}
+          value={totals.fatG}
+          goal={goals.fatGoalG}
+          color={COLORS.fat}
+        />
       </View>
     </View>
   );
 }
 
-interface MacroChipProps {
+interface MacroBarProps {
   label: string;
   value: number;
-  unit: string;
+  goal: number | null;
   color: string;
 }
 
-function MacroChip({ label, value, unit, color }: MacroChipProps) {
+function MacroBar({ label, value, goal, color }: MacroBarProps) {
+  const numericGoal = goal && goal > 0 ? goal : null;
+  const ratio = numericGoal ? Math.min(1, Math.max(0, value / numericGoal)) : 0;
+  const valueText = numericGoal
+    ? `${Math.round(value)} / ${Math.round(numericGoal)} g`
+    : `${Math.round(value)} g`;
+
   return (
-    <View style={styles.chip}>
-      <View style={[styles.chipDot, { backgroundColor: color }]} />
-      <View style={styles.chipText}>
-        <Text style={styles.chipLabel}>{label}</Text>
-        <Text style={styles.chipValue}>
-          {Math.round(value)}
-          {unit}
-        </Text>
+    <View style={styles.macroRow}>
+      <Text style={styles.macroLabel}>{label}</Text>
+      <View style={styles.barTrack}>
+        <View
+          style={[
+            styles.barFill,
+            { backgroundColor: color, width: `${ratio * 100}%` },
+          ]}
+        />
       </View>
+      <Text style={styles.macroValue}>{valueText}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
+    backgroundColor: COLORS.surfaceElevated,
+    borderRadius: RADIUS.xxl,
     padding: SPACING.lg,
     marginBottom: SPACING.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.border,
+    alignItems: 'stretch',
   },
-  label: {
-    color: COLORS.textSecondary,
-    fontSize: TYPOGRAPHY.size.sm,
-    fontWeight: TYPOGRAPHY.weight.medium,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
+  ringWrap: {
+    alignItems: 'center',
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.lg,
   },
-  valueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginTop: SPACING.sm,
+  hidden: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0,
   },
-  value: {
-    color: COLORS.text,
-    fontSize: TYPOGRAPHY.size.display,
-    fontWeight: TYPOGRAPHY.weight.bold,
-  },
-  unit: {
-    color: COLORS.textSecondary,
-    fontSize: TYPOGRAPHY.size.md,
-    marginLeft: SPACING.sm,
-  },
-  progressTrack: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.backgroundAlt,
-    overflow: 'hidden',
-    marginTop: SPACING.md,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: COLORS.primary,
-    borderRadius: 4,
-  },
-  progressFillOver: {
-    backgroundColor: COLORS.protein,
-  },
-  remaining: {
-    color: COLORS.textSecondary,
-    fontSize: TYPOGRAPHY.size.sm,
-    marginTop: SPACING.sm,
+  macroBars: {
+    gap: SPACING.md,
+    paddingTop: SPACING.sm,
   },
   macroRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: SPACING.lg,
-    gap: SPACING.sm,
-  },
-  chip: {
-    flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    backgroundColor: COLORS.backgroundAlt,
-    borderRadius: RADIUS.md,
+    gap: SPACING.md,
   },
-  chipDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  chipText: {
-    flex: 1,
-  },
-  chipLabel: {
+  macroLabel: {
     color: COLORS.textSecondary,
-    fontSize: TYPOGRAPHY.size.xs,
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: TYPOGRAPHY.weight.medium,
+    width: 60,
   },
-  chipValue: {
+  barTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.backgroundAlt,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  macroValue: {
     color: COLORS.text,
     fontSize: TYPOGRAPHY.size.sm,
     fontWeight: TYPOGRAPHY.weight.semibold,
+    minWidth: 64,
+    textAlign: 'right',
   },
 });

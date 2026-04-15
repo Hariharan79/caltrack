@@ -7,6 +7,9 @@ import { COPY } from '@/lib/copy';
 import { useAppStore } from '@/lib/store';
 import { CalendarGrid } from '@/components/CalendarGrid';
 import { DayDetailSheet } from '@/components/DayDetailSheet';
+import { AppHeader } from '@/components/AppHeader';
+import { WeekStreak } from '@/components/WeekStreak';
+import { SectionCard } from '@/components/SectionCard';
 import {
   addMonths,
   buildMonthGrid,
@@ -17,7 +20,7 @@ import {
   type CalendarMonth,
 } from '@/lib/calendar';
 
-const TAB_BAR_PADDING = 96;
+const TAB_BAR_PADDING = 110;
 
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
@@ -62,63 +65,65 @@ export default function HistoryScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Text style={styles.heading}>{COPY.history.heading}</Text>
-        </View>
+        <AppHeader title={COPY.history.heading} />
 
-        <View style={styles.monthBar}>
-          <Pressable
-            onPress={goPrev}
-            accessibilityRole="button"
-            accessibilityLabel={COPY.history.prevMonth}
-            testID="cal-prev"
-            style={styles.navButton}
-            hitSlop={8}
-          >
-            <CaretLeft color={COLORS.text} size={20} weight="bold" />
-          </Pressable>
+        <WeekStreak entries={entries} />
 
-          <Text style={styles.monthLabel} testID="cal-month-label">
-            {monthLabel}
-          </Text>
+        <SectionCard>
+          <View style={styles.monthBar}>
+            <Pressable
+              onPress={goPrev}
+              accessibilityRole="button"
+              accessibilityLabel={COPY.history.prevMonth}
+              testID="cal-prev"
+              style={styles.navButton}
+              hitSlop={8}
+            >
+              <CaretLeft color={COLORS.text} size={20} weight="bold" />
+            </Pressable>
 
-          <Pressable
-            onPress={goNext}
-            accessibilityRole="button"
-            accessibilityLabel={COPY.history.nextMonth}
-            testID="cal-next"
-            style={styles.navButton}
-            hitSlop={8}
-          >
-            <CaretRight color={COLORS.text} size={20} weight="bold" />
-          </Pressable>
-        </View>
+            <Text style={styles.monthLabel} testID="cal-month-label">
+              {monthLabel}
+            </Text>
 
-        {!atCurrentMonth ? (
-          <Pressable
-            onPress={goToday}
-            accessibilityRole="button"
-            accessibilityLabel={COPY.history.jumpToToday}
-            testID="cal-today"
-            style={styles.todayButton}
-          >
-            <Text style={styles.todayLabel}>{COPY.history.jumpToToday}</Text>
-          </Pressable>
-        ) : null}
+            <Pressable
+              onPress={goNext}
+              accessibilityRole="button"
+              accessibilityLabel={COPY.history.nextMonth}
+              testID="cal-next"
+              style={styles.navButton}
+              hitSlop={8}
+            >
+              <CaretRight color={COLORS.text} size={20} weight="bold" />
+            </Pressable>
+          </View>
 
-        <CalendarGrid
-          rows={rows}
-          totalsByDay={totalsByDay}
-          goalCalories={goals.calorieGoal}
-          onDayPress={(dayKey) => setSelectedDay(dayKey)}
-          testID="cal-grid"
-        />
+          {!atCurrentMonth ? (
+            <Pressable
+              onPress={goToday}
+              accessibilityRole="button"
+              accessibilityLabel={COPY.history.jumpToToday}
+              testID="cal-today"
+              style={styles.todayButton}
+            >
+              <Text style={styles.todayLabel}>{COPY.history.jumpToToday}</Text>
+            </Pressable>
+          ) : null}
 
-        <View style={styles.legend}>
-          <LegendItem color={COLORS.primary} label={COPY.history.legendAtGoal} />
-          <LegendItem color={COLORS.fat} label={COPY.history.legendUnder} />
-          <LegendItem color={COLORS.protein} label={COPY.history.legendOver} />
-        </View>
+          <CalendarGrid
+            rows={rows}
+            totalsByDay={totalsByDay}
+            goalCalories={goals.calorieGoal}
+            onDayPress={(dayKey) => setSelectedDay(dayKey)}
+            testID="cal-grid"
+          />
+
+          <View style={styles.legend}>
+            <LegendItem color={COLORS.primary} label={COPY.history.legendAtGoal} />
+            <LegendItem color={COLORS.fat} label={COPY.history.legendUnder} />
+            <LegendItem color={COLORS.protein} label={COPY.history.legendOver} />
+          </View>
+        </SectionCard>
       </ScrollView>
 
       <DayDetailSheet
@@ -155,14 +160,6 @@ const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.lg,
-  },
-  header: {
-    marginBottom: SPACING.md,
-  },
-  heading: {
-    color: COLORS.text,
-    fontSize: TYPOGRAPHY.size.display,
-    fontWeight: TYPOGRAPHY.weight.bold,
   },
   monthBar: {
     flexDirection: 'row',

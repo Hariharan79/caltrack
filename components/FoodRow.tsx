@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { COPY } from '@/lib/copy';
 import type { Food } from '@/types';
+import { Avatar } from './Avatar';
 
 interface FoodRowProps {
   food: Food;
@@ -28,6 +29,7 @@ export function FoodRow({ food, onPress }: FoodRowProps) {
       testID={`food-row-${food.id}`}
       style={({ pressed }) => [styles.row, pressed && onPress ? styles.pressed : null]}
     >
+      <Avatar name={food.name} size={40} />
       <View style={styles.left}>
         <Text style={styles.name} numberOfLines={1}>
           {food.name}

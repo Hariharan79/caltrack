@@ -10,8 +10,12 @@ describe('Theme constants — NAV-03 dark mode assertions', () => {
       expect(COLORS.backgroundAlt).toBe('#0A0A0A');
     });
 
-    it('COLORS.surface is dark surface (#1C1C1E)', () => {
-      expect(COLORS.surface).toBe('#1C1C1E');
+    it('COLORS.surface is dark surface (#121214) per Phase 20 revamp', () => {
+      expect(COLORS.surface).toBe('#121214');
+    });
+
+    it('COLORS.surfaceElevated is the hero-card surface (#18181B)', () => {
+      expect(COLORS.surfaceElevated).toBe('#18181B');
     });
 
     it('COLORS.text is white (#FFFFFF)', () => {
@@ -26,8 +30,8 @@ describe('Theme constants — NAV-03 dark mode assertions', () => {
       expect(COLORS.primary).toBe('#87A878');
     });
 
-    it('COLORS.primaryDark is phthalo green (#123524) per D-04', () => {
-      expect(COLORS.primaryDark).toBe('#123524');
+    it('COLORS.primaryDark is the deep-green accent (#2E4A2A) per Phase 20 revamp', () => {
+      expect(COLORS.primaryDark).toBe('#2E4A2A');
     });
 
     it('background role colors do NOT use white (#FFFFFF) as a background', () => {
@@ -57,20 +61,28 @@ describe('Theme constants — NAV-03 dark mode assertions', () => {
   });
 
   describe('RADIUS', () => {
-    it('RADIUS.sm is 4', () => {
-      expect(RADIUS.sm).toBe(4);
+    it('RADIUS.sm is 6 per Phase 20 revamp', () => {
+      expect(RADIUS.sm).toBe(6);
     });
 
-    it('RADIUS.md is 8', () => {
-      expect(RADIUS.md).toBe(8);
+    it('RADIUS.md is 10 per Phase 20 revamp', () => {
+      expect(RADIUS.md).toBe(10);
     });
 
-    it('RADIUS.lg is 12', () => {
-      expect(RADIUS.lg).toBe(12);
+    it('RADIUS.lg is 14 per Phase 20 revamp', () => {
+      expect(RADIUS.lg).toBe(14);
     });
 
-    it('RADIUS.xl is 16', () => {
-      expect(RADIUS.xl).toBe(16);
+    it('RADIUS.xl is 20 per Phase 20 revamp', () => {
+      expect(RADIUS.xl).toBe(20);
+    });
+
+    it('RADIUS.xxl is 28 (hero cards + ring container)', () => {
+      expect(RADIUS.xxl).toBe(28);
+    });
+
+    it('RADIUS.pill is 999 (floating nav bar)', () => {
+      expect(RADIUS.pill).toBe(999);
     });
   });
 

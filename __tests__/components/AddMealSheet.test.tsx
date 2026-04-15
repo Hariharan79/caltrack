@@ -16,9 +16,17 @@ interface MockFood {
   name: string;
 }
 
+interface MockGoals {
+  calorieGoal: number;
+  proteinGoalG: number | null;
+  carbsGoalG: number | null;
+  fatGoalG: number | null;
+}
+
 interface MockState {
   foods: MockFood[];
   entries: unknown[];
+  goals: MockGoals;
   addEntry: typeof mockAddEntry;
   updateEntry: typeof mockUpdateEntry;
   upsertFoodFromLookup: typeof mockUpsertFoodFromLookup;
@@ -27,6 +35,12 @@ interface MockState {
 const mockState: MockState = {
   foods: [],
   entries: [],
+  goals: {
+    calorieGoal: 2000,
+    proteinGoalG: null,
+    carbsGoalG: null,
+    fatGoalG: null,
+  },
   addEntry: mockAddEntry,
   updateEntry: mockUpdateEntry,
   upsertFoodFromLookup: mockUpsertFoodFromLookup,
@@ -40,6 +54,14 @@ jest.mock('@/lib/store', () => ({
     return foods.filter((f) => f.name.toLowerCase().includes(q));
   },
   selectRecentFoods: () => [],
+  selectTodayTotals: () => ({
+    dayKey: '2026-04-15',
+    calories: 0,
+    proteinG: 0,
+    carbsG: 0,
+    fatG: 0,
+    entryCount: 0,
+  }),
 }));
 
 import { AddMealSheet, validateDraft } from '@/components/AddMealSheet';

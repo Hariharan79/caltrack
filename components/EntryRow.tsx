@@ -4,6 +4,7 @@ import { COPY } from '@/lib/copy';
 import type { MealEntry } from '@/types';
 import { formatTime } from '@/lib/date';
 import { checkMacroSanity } from '@/lib/nutrition';
+import { Avatar } from './Avatar';
 
 export type EntryRowVariant = 'default' | 'planned';
 
@@ -43,6 +44,7 @@ export function EntryRow({
 
   const inner = (
     <>
+      <Avatar name={entry.name} size={40} />
       <View style={styles.left}>
         <View style={styles.nameRow}>
           <Text style={styles.name} numberOfLines={1}>

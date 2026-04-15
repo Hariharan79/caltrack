@@ -1,10 +1,10 @@
 import { useMemo, useState, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput } from 'react-native';
 import { useRouter, useNavigation } from 'expo-router';
+import { Barcode, MagnifyingGlass } from 'phosphor-react-native';
 
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { COPY } from '@/lib/copy';
-import { TextField } from '@/components/TextField';
 import { FoodRow } from '@/components/FoodRow';
 import { useAppStore, searchFoods } from '@/lib/store';
 
@@ -30,26 +30,15 @@ export default function FoodsListScreen() {
         </Pressable>
       ),
       headerRight: () => (
-        <View style={styles.headerRightRow}>
-          <Pressable
-            onPress={() => router.push({ pathname: '/foods/scan', params: { destination: 'library' } })}
-            accessibilityRole="button"
-            accessibilityLabel={COPY.foods.library.scanLabel}
-            hitSlop={12}
-            testID="food-scan"
-          >
-            <Text style={styles.headerAction}>{COPY.foods.library.scanAction}</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push('/foods/new')}
-            accessibilityRole="button"
-            accessibilityLabel={COPY.foods.library.addLabel}
-            hitSlop={12}
-            testID="food-add"
-          >
-            <Text style={styles.headerAction}>{COPY.foods.library.addAction}</Text>
-          </Pressable>
-        </View>
+        <Pressable
+          onPress={() => router.push('/foods/new')}
+          accessibilityRole="button"
+          accessibilityLabel={COPY.foods.library.addLabel}
+          hitSlop={12}
+          testID="food-add"
+        >
+          <Text style={styles.headerAction}>{COPY.foods.library.addAction}</Text>
+        </Pressable>
       ),
     });
   }, [navigation, router]);
@@ -57,15 +46,30 @@ export default function FoodsListScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.searchWrap}>
-        <TextField
-          label={COPY.foods.library.searchLabel}
-          value={query}
-          onChangeText={setQuery}
-          placeholder={COPY.foods.library.searchPlaceholder}
-          autoCapitalize="none"
-          autoCorrect={false}
-          testID="food-search"
-        />
+        <View style={styles.searchPill}>
+          <MagnifyingGlass color={COLORS.textSecondary} size={18} weight="bold" />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder={COPY.foods.library.searchPlaceholder}
+            placeholderTextColor={COLORS.textTertiary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={styles.searchInput}
+            accessibilityLabel={COPY.foods.library.searchLabel}
+            testID="food-search"
+          />
+          <Pressable
+            onPress={() => router.push({ pathname: '/foods/scan', params: { destination: 'library' } })}
+            accessibilityRole="button"
+            accessibilityLabel={COPY.foods.library.scanLabel}
+            hitSlop={12}
+            testID="food-scan"
+            style={styles.scanButton}
+          >
+            <Barcode color={COLORS.text} size={20} weight="bold" />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
@@ -103,6 +107,32 @@ const styles = StyleSheet.create({
   searchWrap: {
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.md,
+    paddingBottom: SPACING.sm,
+  },
+  searchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.borderStrong,
+  },
+  searchInput: {
+    flex: 1,
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.size.md,
+    paddingVertical: SPACING.xs,
+  },
+  scanButton: {
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   list: {
     flex: 1,
@@ -130,10 +160,5 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.md,
     fontWeight: TYPOGRAPHY.weight.semibold,
     paddingHorizontal: SPACING.sm,
-  },
-  headerRightRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
   },
 });

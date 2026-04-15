@@ -10,13 +10,15 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { COPY } from '@/lib/copy';
 import { useAppStore, selectLatestWeight } from '@/lib/store';
 import { TextField } from '@/components/TextField';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { WeightChart } from '@/components/WeightChart';
 import { WeightLogSheet } from '@/components/WeightLogSheet';
+import { AppHeader } from '@/components/AppHeader';
+import { SectionCard } from '@/components/SectionCard';
 import { signOut } from '@/lib/auth';
 import {
   goalsToDraft,
@@ -24,7 +26,7 @@ import {
   type GoalsDraft,
 } from '@/lib/goals';
 
-const TAB_BAR_PADDING = 96;
+const TAB_BAR_PADDING = 110;
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -116,27 +118,80 @@ export default function ProfileScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Text style={styles.heading}>{COPY.profile.heading}</Text>
-          <Text style={styles.sub}>{COPY.profile.subtitle}</Text>
-        </View>
+        <AppHeader title={COPY.profile.heading} subtitle={COPY.profile.subtitle} />
 
-        <View style={styles.weightCard} onLayout={onChartLayout}>
-          <View style={styles.weightHeader}>
-            <Text style={styles.sectionLabel}>{COPY.profile.sectionWeight}</Text>
-            {latestWeight ? (
+        <SectionCard title={COPY.profile.sectionGoals}>
+          <TextField
+            label={COPY.profile.goals.calorieLabel}
+            value={draft.calorieGoal}
+            onChangeText={(v) => update('calorieGoal', v)}
+            placeholder={COPY.profile.goals.caloriePlaceholder}
+            keyboardType="number-pad"
+            error={visibleErrors.calorieGoal}
+            testID="goal-calories"
+          />
+          <TextField
+            label={COPY.profile.goals.proteinLabel}
+            value={draft.proteinGoalG}
+            onChangeText={(v) => update('proteinGoalG', v)}
+            placeholder={COPY.profile.goals.optionalPlaceholder}
+            keyboardType="number-pad"
+            error={visibleErrors.proteinGoalG}
+            testID="goal-protein"
+          />
+          <TextField
+            label={COPY.profile.goals.carbsLabel}
+            value={draft.carbsGoalG}
+            onChangeText={(v) => update('carbsGoalG', v)}
+            placeholder={COPY.profile.goals.optionalPlaceholder}
+            keyboardType="number-pad"
+            error={visibleErrors.carbsGoalG}
+            testID="goal-carbs"
+          />
+          <TextField
+            label={COPY.profile.goals.fatLabel}
+            value={draft.fatGoalG}
+            onChangeText={(v) => update('fatGoalG', v)}
+            placeholder={COPY.profile.goals.optionalPlaceholder}
+            keyboardType="number-pad"
+            error={visibleErrors.fatGoalG}
+            testID="goal-fat"
+          />
+
+          {savedFlash ? (
+            <Text style={styles.savedFlash} testID="saved-flash">
+              {COPY.profile.goals.saved}
+            </Text>
+          ) : null}
+
+          <PrimaryButton
+            label={COPY.profile.goals.saveButton}
+            onPress={handleSave}
+            loading={saving}
+            testID="save-goals"
+            style={styles.saveButton}
+          />
+        </SectionCard>
+
+        <SectionCard
+          title={COPY.profile.sectionWeight}
+          trailing={
+            latestWeight ? (
               <Text style={styles.weightLatest} testID="weight-latest">
                 {latestWeight.weightKg.toFixed(1)} kg
               </Text>
+            ) : undefined
+          }
+        >
+          <View onLayout={onChartLayout}>
+            {chartWidth > 0 ? (
+              <WeightChart
+                entries={weightEntries}
+                width={chartWidth}
+                testID="weight-chart"
+              />
             ) : null}
           </View>
-          {chartWidth > 0 ? (
-            <WeightChart
-              entries={weightEntries}
-              width={chartWidth}
-              testID="weight-chart"
-            />
-          ) : null}
           <PrimaryButton
             label={COPY.profile.logWeightButton}
             onPress={() => setWeightSheetVisible(true)}
@@ -144,80 +199,28 @@ export default function ProfileScreen() {
             testID="open-weight-sheet"
             style={styles.weightButton}
           />
-        </View>
+        </SectionCard>
 
-        <PrimaryButton
-          label={foodsCount > 0 ? COPY.profile.openLibraryWithCount(foodsCount) : COPY.profile.openLibrary}
-          variant="secondary"
-          onPress={() => router.push('/foods')}
-          testID="open-foods"
-          style={styles.libraryButton}
-        />
+        <SectionCard title={COPY.profile.sectionDataSources}>
+          <PrimaryButton
+            label={foodsCount > 0 ? COPY.profile.openLibraryWithCount(foodsCount) : COPY.profile.openLibrary}
+            variant="secondary"
+            onPress={() => router.push('/foods')}
+            testID="open-foods"
+          />
+          <Pressable
+            onPress={() => router.push('/data-sources')}
+            accessibilityRole="link"
+            accessibilityLabel={COPY.dataSources.profileLink}
+            hitSlop={8}
+            style={styles.dataSourcesLink}
+            testID="open-data-sources"
+          >
+            <Text style={styles.dataSourcesLinkText}>{COPY.dataSources.profileLink}</Text>
+          </Pressable>
+        </SectionCard>
 
-        <TextField
-          label={COPY.profile.goals.calorieLabel}
-          value={draft.calorieGoal}
-          onChangeText={(v) => update('calorieGoal', v)}
-          placeholder={COPY.profile.goals.caloriePlaceholder}
-          keyboardType="number-pad"
-          error={visibleErrors.calorieGoal}
-          testID="goal-calories"
-        />
-        <TextField
-          label={COPY.profile.goals.proteinLabel}
-          value={draft.proteinGoalG}
-          onChangeText={(v) => update('proteinGoalG', v)}
-          placeholder={COPY.profile.goals.optionalPlaceholder}
-          keyboardType="number-pad"
-          error={visibleErrors.proteinGoalG}
-          testID="goal-protein"
-        />
-        <TextField
-          label={COPY.profile.goals.carbsLabel}
-          value={draft.carbsGoalG}
-          onChangeText={(v) => update('carbsGoalG', v)}
-          placeholder={COPY.profile.goals.optionalPlaceholder}
-          keyboardType="number-pad"
-          error={visibleErrors.carbsGoalG}
-          testID="goal-carbs"
-        />
-        <TextField
-          label={COPY.profile.goals.fatLabel}
-          value={draft.fatGoalG}
-          onChangeText={(v) => update('fatGoalG', v)}
-          placeholder={COPY.profile.goals.optionalPlaceholder}
-          keyboardType="number-pad"
-          error={visibleErrors.fatGoalG}
-          testID="goal-fat"
-        />
-
-        {savedFlash ? (
-          <Text style={styles.savedFlash} testID="saved-flash">
-            {COPY.profile.goals.saved}
-          </Text>
-        ) : null}
-
-        <PrimaryButton
-          label={COPY.profile.goals.saveButton}
-          onPress={handleSave}
-          loading={saving}
-          testID="save-goals"
-          style={styles.saveButton}
-        />
-
-        <Pressable
-          onPress={() => router.push('/data-sources')}
-          accessibilityRole="link"
-          accessibilityLabel={COPY.dataSources.profileLink}
-          hitSlop={8}
-          style={styles.dataSourcesLink}
-          testID="open-data-sources"
-        >
-          <Text style={styles.dataSourcesLinkText}>{COPY.dataSources.profileLink}</Text>
-        </Pressable>
-
-        <View style={styles.dangerZone}>
-          <Text style={styles.dangerLabel}>{COPY.profile.sectionSession}</Text>
+        <SectionCard title={COPY.profile.sectionAccount}>
           <PrimaryButton
             label={COPY.profile.dangerZone.signOutButton}
             onPress={handleSignOut}
@@ -225,7 +228,7 @@ export default function ProfileScreen() {
             loading={signingOut}
             testID="sign-out"
           />
-        </View>
+        </SectionCard>
       </ScrollView>
 
       <WeightLogSheet
@@ -246,19 +249,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.lg,
   },
-  header: {
-    marginBottom: SPACING.lg,
-  },
-  heading: {
-    color: COLORS.text,
-    fontSize: TYPOGRAPHY.size.display,
-    fontWeight: TYPOGRAPHY.weight.bold,
-  },
-  sub: {
-    color: COLORS.textSecondary,
-    fontSize: TYPOGRAPHY.size.md,
-    marginTop: 2,
-  },
   savedFlash: {
     color: COLORS.primary,
     fontSize: TYPOGRAPHY.size.sm,
@@ -269,31 +259,6 @@ const styles = StyleSheet.create({
   saveButton: {
     marginTop: SPACING.sm,
   },
-  libraryButton: {
-    marginBottom: SPACING.lg,
-  },
-  weightCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.border,
-    padding: SPACING.md,
-    marginBottom: SPACING.lg,
-  },
-  weightHeader: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.sm,
-    paddingHorizontal: SPACING.xs,
-  },
-  sectionLabel: {
-    color: COLORS.textSecondary,
-    fontSize: TYPOGRAPHY.size.sm,
-    fontWeight: TYPOGRAPHY.weight.medium,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
   weightLatest: {
     color: COLORS.text,
     fontSize: TYPOGRAPHY.size.lg,
@@ -302,24 +267,10 @@ const styles = StyleSheet.create({
   weightButton: {
     marginTop: SPACING.md,
   },
-  dangerZone: {
-    marginTop: SPACING.xxxl,
-    paddingTop: SPACING.lg,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.border,
-  },
-  dangerLabel: {
-    color: COLORS.textSecondary,
-    fontSize: TYPOGRAPHY.size.sm,
-    fontWeight: TYPOGRAPHY.weight.medium,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: SPACING.md,
-  },
   dataSourcesLink: {
-    alignSelf: 'center',
+    alignSelf: 'flex-start',
     paddingVertical: SPACING.md,
-    marginTop: SPACING.lg,
+    marginTop: SPACING.sm,
   },
   dataSourcesLinkText: {
     color: COLORS.textSecondary,

@@ -91,7 +91,7 @@ beforeEach(() => {
   authMock.__state.refreshCount = 0;
   authMock.__state.refreshError = null;
 
-  global.fetch = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+  (globalThis as { fetch: typeof fetch }).fetch = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
     const headersInit = (init?.headers ?? {}) as Record<string, string>;
     const rawBody = typeof init?.body === 'string' ? init?.body : '';
     let parsedBody: unknown = null;

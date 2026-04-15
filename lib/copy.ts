@@ -42,6 +42,10 @@ export const COPY = {
     heading: 'Today',
     sectionMeals: 'Meals',
     sectionPlanned: 'Planned',
+    sectionBreakfast: 'Breakfast',
+    sectionLunch: 'Lunch',
+    sectionDinner: 'Dinner',
+    sectionSnacks: 'Snacks',
     emptyEntries: 'An empty log. What a glorious, untouched canvas.',
     plannedBadge: 'Planned',
     markEatenButton: 'Mark eaten',
@@ -53,6 +57,9 @@ export const COPY = {
     deletePlannedConfirmAction: 'Delete',
     fabLabel: 'Log a meal',
     deleteFailedTitle: "Couldn't delete meal.",
+    profileLabel: 'Open profile',
+    streakLabel: (day: string, logged: boolean) =>
+      logged ? `${day}, logged` : `${day}, no entries`,
   },
 
   history: {
@@ -73,7 +80,10 @@ export const COPY = {
   profile: {
     heading: 'Profile',
     subtitle: 'Daily nutrition goals',
+    sectionGoals: 'Goals',
     sectionWeight: 'Weight',
+    sectionDataSources: 'Data sources',
+    sectionAccount: 'Account',
     logWeightButton: 'Log weight',
     sectionSession: 'Session',
     openLibraryWithCount: (n: number) => `Food library (${n})`,
@@ -177,6 +187,9 @@ export const COPY = {
       cancel: 'Cancel',
       tabLog: 'Log',
       tabQuick: 'Quick add',
+      tabRecents: 'Recents',
+      tabSearch: 'Search',
+      dailyIntakeLabel: 'Today so far',
       modeNow: 'Log now',
       modePlan: 'Plan for later',
       planFor: 'Plan for',

@@ -1,16 +1,20 @@
 export const COLORS = {
   background: '#000000',
   backgroundAlt: '#0A0A0A',
-  surface: '#1C1C1E',
+  surface: '#121214',
+  surfaceElevated: '#18181B',
   text: '#FFFFFF',
   textSecondary: '#8E8E93',
+  textTertiary: '#6B6B72',
   primary: '#87A878',
-  primaryDark: '#123524',
-  protein: '#FF6B6B',
-  carbs: '#4ECDC4',
-  fat: '#FFE66D',
-  border: 'rgba(255,255,255,0.1)',
-  overlay: 'rgba(0,0,0,0.5)',
+  primaryMuted: 'rgba(135,168,120,0.18)',
+  primaryDark: '#2E4A2A',
+  protein: '#FF8A7A',
+  carbs: '#5EEAE0',
+  fat: '#FFD56B',
+  border: 'rgba(255,255,255,0.08)',
+  borderStrong: 'rgba(255,255,255,0.16)',
+  overlay: 'rgba(0,0,0,0.72)',
 } as const;
 
 export const SPACING = {
@@ -24,10 +28,12 @@ export const SPACING = {
 } as const;
 
 export const RADIUS = {
-  sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 16,
+  sm: 6,
+  md: 10,
+  lg: 14,
+  xl: 20,
+  xxl: 28,
+  pill: 999,
 } as const;
 
 export const TYPOGRAPHY = {
