@@ -1,24 +1,46 @@
 # Session State
 
-> **For future-me opening this repo in a fresh session:** read this file first, then skim `DECISIONS.md` (especially D-14..D-23, D-29), then `ROADMAP.md`, then `git log --oneline -8`. That's enough to resume without asking the user anything.
+> **For future-me opening this repo in a fresh session:** read this file first, then skim `DECISIONS.md` (especially D-14..D-23, D-29..D-33), then `ROADMAP.md`, then `git log --oneline -10`. There are uncommitted changes in the working tree — see "Open issue" below before doing anything else.
 
 ---
 
-## 🟡 Phase 19 shipped (unverified) — 2026-04-14 overnight
+## 🟡 Morning interactive verification (2026-04-14 → 2026-04-15)
 
-Phase 19 (V-01 brand voice copy pass) landed in a single commit during autonomous overnight mode. `lib/copy.ts` added as central string table — deeply readonly, typed, referenced from all user-facing surfaces. Every screen, sheet, validator, alert, empty state, and accessibility label now pulls from `COPY.*`. Voice follows D-22 ("dry with light personality"). Flagship lines: Today empty → "An empty log. What a glorious, untouched canvas.", no exclamation marks anywhere, error messages state the implied next step. 266/266 jest (added `__tests__/lib/copy.test.ts` smoke suite; updated TotalsCard/EntriesList/WeightChart tests to match new strings). tsc + lint clean. **Runtime verification deferred to morning** — no iOS simulator run tonight.
+User did the overnight autonomous run, then came back and verified phases on a **physical iPhone via Expo Go tunnel mode** (`npx expo start --tunnel --clear` — LAN mode is unreliable on this machine because of CGNAT/hotspot routing). Account-based auto-discovery: signed into the same Expo account on CLI and Expo Go, dev server appears under "Development servers" on the Expo Go Home tab.
 
-Phase 14 (F-14 edit entries in place) shipped earlier overnight. Phase 13 (F-20 bullshit detector, `da3c946`) also shipped without runtime verification. Phases 13/14/19 all still need sim verification before marking done per N-11.
+### ✅ Verified working on device
 
----
+- **Phase 13** (`da3c946`) — bullshit detector chips render correctly (mild yellow / blatant red), ⚠ badge appears on entries from blatant foods.
+- **Phase 14** (`aff70fa`) — tap a meal row on Today → "Edit meal" sheet pre-fills, save updates row + totals.
+- **Phase 19** (`80a508f`) — copy pass. User said "phase 19 works," tone is consistent across screens.
+- **Phase 17 — library entry path** (`a9b223c`) — Profile → Food library → Scan → manual barcode entry (Skippy `037600110754` → "Creamy Peanut Butter" via OFF) → routes to /foods/new, food saves to library.
+- **Phase 17 follow-up data sources screen** (`1855e11`) — Profile → Data sources link works, USDA + Open Food Facts cards render with external links per ODbL attribution requirement.
 
-## 🟢 Next action — runtime-verify Phases 13 + 14 + 17 + 19, then pick Phase 16 (meal planning) or Phase 20 (v2 verification)
+### 🐛 Open issue — Phase 17 follow-up scan-from-log entry path
 
-Phase 17 (barcode scanning) shipped overnight. Since the iOS simulator cannot scan real barcodes through the lens (camera is a still image in Expo Go sim), **D-32** was taken: the scan screen ships with a "Enter barcode manually" link on every state. Morning verification path: open Foods library → tap Scan → permission-denied state appears → tap "Enter barcode manually" → type `3017620422003` (Nutella) → tap "Look up" → confirm OFF lookup round-trips into a pre-filled FoodForm → save → confirm new row in your foods library.
+Commit `1855e11` added a Scan icon button on the Log tab of AddMealSheet so users can scan a barcode directly into a meal log without going through the Food library. **This entry path is broken on iOS** because of the formSheet phantom-presentation bug — see `~/.claude/projects/-Users-hari7aran-Desktop-caltrack-autopilot-test/memory/expo_workflow_gotchas.md` #10 for the full root cause.
 
-Phase 19 is also complete in code but **not runtime-verified**. Morning verification: (1) open every screen, confirm no stale strings, no exclamation marks, all empty states read in the new voice, (2) trigger an alert (delete a meal, save a malformed goal) and confirm error titles read "Couldn't save goals." etc., (3) re-verify Phases 13/14/17 while you're at it.
+User repro: Today → FAB → Log tab → Scan → manual entry `037600110754` → Look up succeeds (verified via instrumented logs — state machine reaches the seeded state cleanly) → user expects the meal sheet to reopen with the food in the servings stepper → instead, **nothing renders and the FAB is unclickable** because UIKit has the formSheet in a corrupted phantom state.
 
-Remaining v2 phases: **16, 20**. Phase 16 (meal planning) is the larger remaining feature; Phase 20 is verification + MORNING_SUMMARY_v2.md.
+**Uncommitted WIP fix in the working tree** (do `git status` to see):
+- `app/(tabs)/index.tsx` — `pendingNavRef` pattern, `handleAfterDismiss` callback, scan navigation deferred until Modal `onDismiss` fires
+- `components/AddMealSheet.tsx` — new `onAfterDismiss?: () => void` prop forwarded to `Modal.onDismiss`
+
+The fix passes `npx tsc --noEmit` but is **NOT verified on device** — user paused testing before reloading the bundle to try the fix. Next session should:
+
+1. Confirm Metro is running (or restart with `npx expo start --tunnel --clear` if it's not — Metro task IDs from this session are stale).
+2. Reload the app on the user's iPhone.
+3. Reproduce the scan-from-log flow and confirm the sheet reopens cleanly with the scanned food in the stepper view.
+4. If working: commit the fix as `fix(barcode): defer scan nav until formSheet fully dismisses`. Then run `npx jest` and `npx expo lint` before committing.
+5. If broken: try the fallback approach — conditional mount (`{sheetVisible && <AddMealSheet />}`) so the Modal is fully unmounted and re-created each open. UX regression on dismiss animation but bypasses the UIKit bug entirely.
+
+### 🟢 Next action (after the WIP fix is verified or replaced)
+
+Phase 16 (meal planning — planned vs eaten, per **D-31** which the overnight session pre-decided as Today + next 6 days, no full date picker), then Phase 20 (final verification + `MORNING_SUMMARY_v2.md`). Both queued in TaskList.
+
+### Sim verification quirk
+
+The iOS simulator cannot scan real barcodes through the lens (per **D-32**). On the user's physical iPhone, the camera path works — they were scanning real food packages. Manual entry path is still the fallback for sim testing.
 
 ### Phase 17 runtime verification
 
@@ -67,7 +89,7 @@ Phase 14 (edit entries in place) and Phase 16 (meal planning) are still blocked 
 - **Repo:** `/Users/hari7aran/Desktop/caltrack-autopilot-test`
 - **Supabase project:** `gjzonxmvfaokjpgfykrn.supabase.co` (MCP connected)
 - **Branch:** `main` (all work lives here; no feature branches this project)
-- **Last commit:** `a9b223c` — `feat(barcode): scan to auto-populate foods`
+- **Last commit:** `1855e11` — `feat(barcode): scan from the log sheet + data source attribution`. **Working tree has uncommitted changes** in `app/(tabs)/index.tsx` and `components/AddMealSheet.tsx` (WIP fix for the iOS formSheet scan-from-log bug — see top of file).
 - **Edge function `food-lookup`** is deployed (version 1, JWT verification on). To redeploy after editing source files: re-bundle the inlined contents of `supabase/functions/food-lookup/index.ts` + `_shared/cors.ts` + `lib/foodNormalizers.ts` into a single string and call `mcp__supabase__deploy_edge_function` with `name: 'food-lookup'`. The split source files exist for editing/testing; the deployed bundle is one file to dodge cross-directory import resolution in the Edge runtime.
 - **Supabase secrets** has `USDA_FDC_API_KEY` set (project dashboard → Edge Functions → Secrets). Don't put it in `.env`. Function fails with a clear 500 if it's missing.
 - **User mode:** interactive during the day, occasionally authorizes autonomous overnight work. See `~/.claude/projects/-Users-hari7aran-Desktop-caltrack-autopilot-test/memory/session_mode_overnight.md`.
@@ -103,13 +125,13 @@ Phase 14 (edit entries in place) and Phase 16 (meal planning) are still blocked 
 - [x] Phase 11 — Foods table CRUD + library UI (`9bb1b8f`, runtime-verified 2026-04-13)
 - [x] Phase 11.5 — Food-lookup edge function (USDA + OFF) (`abe7d16`, smoke-tested 2026-04-13, see **D-27**)
 - [x] Phase 12 — Food-first logging flow with stepper (`fbb2921` + `386d4ef` auth fix + D-28 verify_jwt:false redeploy, fully runtime-verified 2026-04-14)
-- [x] Phase 13 — Bullshit detector (F-20) (shipped overnight 2026-04-14, **runtime verification deferred** — static checks only)
-- [x] Phase 14 — Edit entries in place (shipped overnight 2026-04-14, **runtime verification deferred** — static checks only)
+- [x] Phase 13 — Bullshit detector (F-20) (`da3c946`, runtime-verified on device 2026-04-15)
+- [x] Phase 14 — Edit entries in place (`aff70fa`, runtime-verified on device 2026-04-15)
 - [x] Phase 15 — Weight tracking + trend chart (`7fd7795`, runtime-verified 2026-04-13)
-- [ ] Phase 16 — Meal planning (blocked: depends on 12)
-- [x] Phase 17 — Barcode scanning (shipped overnight 2026-04-14, **runtime verification deferred** — static checks only, manual entry fallback provided per D-32). **Follow-up (post-verify):** scan entry point moved into the AddMealSheet Log tab in addition to the Food library header, so the natural Today → FAB → Log → Scan flow works end-to-end. See D-33 for rationale. New commit: see git log for `feat(barcode): scan from the log sheet`.
+- [ ] Phase 16 — Meal planning (next; D-31 sets scope to Today + next 6 days, no full date picker)
+- [~] Phase 17 — Barcode scanning (`a9b223c` core + `1855e11` follow-up). Library-entry path verified on device 2026-04-15. **Scan-from-log entry path (new in `1855e11`) is broken** — iOS formSheet phantom-presentation bug, WIP fix uncommitted in working tree.
 - [x] Phase 18 — Calendar grid History (`c7e7575`, runtime-verified 2026-04-13)
-- [x] Phase 19 — Brand voice copy pass (`80a508f`, shipped overnight 2026-04-14, **runtime verification deferred** — static checks only)
+- [x] Phase 19 — Brand voice copy pass (`80a508f`, runtime-verified on device 2026-04-15)
 - [ ] Phase 20 — v2 verification + MORNING_SUMMARY_v2.md
 
 ## Health

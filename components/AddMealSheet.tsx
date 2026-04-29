@@ -77,6 +77,14 @@ interface AddMealSheetProps {
    * with `destination: 'log'`.
    */
   onRequestScan?: () => void;
+  /**
+   * iOS-only: fires after the Modal has fully finished its dismiss animation.
+   * The parent uses this to defer follow-up navigation (e.g. pushing the scan
+   * route) until UIKit has fully released the formSheet — pushing while the
+   * formSheet is mid-dismiss leaves UIKit in a broken phantom-presentation
+   * state where the modal re-presents empty and swallows touches.
+   */
+  onAfterDismiss?: () => void;
 }
 
 interface DraftState {
@@ -164,6 +172,7 @@ export function AddMealSheet({
   initialEntry = null,
   initialScannedFood = null,
   onRequestScan,
+  onAfterDismiss,
 }: AddMealSheetProps) {
   const foods = useAppStore((s) => s.foods);
   const entries = useAppStore((s) => s.entries);
@@ -405,6 +414,7 @@ export function AddMealSheet({
       presentationStyle={Platform.OS === 'ios' ? 'formSheet' : 'overFullScreen'}
       transparent={Platform.OS !== 'ios'}
       onRequestClose={handleClose}
+      onDismiss={onAfterDismiss}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

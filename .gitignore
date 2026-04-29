@@ -45,3 +45,10 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Claude Code worktrees + harness
+.claude/
+
+# screenshots / artifacts
+*.zip
+Screenshot*.png

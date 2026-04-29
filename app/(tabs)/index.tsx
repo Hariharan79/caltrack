@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -100,12 +100,28 @@ export default function TodayScreen() {
   // The Scan button inside AddMealSheet asks us to close and route to the
   // scanner with destination='log'. Closing first avoids stacking the scanner
   // under the modal, which swallows back gestures on iOS.
+  // Defer follow-up navigation until iOS confirms the formSheet modal has
+  // fully dismissed. Pushing a new stack screen while the formSheet is still
+  // mid-dismiss leaves UIKit in a phantom-presentation state where the modal
+  // re-presents empty and swallows touches on the parent. AddMealSheet wires
+  // its Modal `onDismiss` prop to `onAfterDismiss`, which we use to drain
+  // `pendingNavRef`.
+  const pendingNavRef = useRef<(() => void) | null>(null);
+
   const handleRequestScan = useCallback(() => {
+    pendingNavRef.current = () => {
+      router.push({ pathname: '/foods/scan', params: { destination: 'log' } });
+    };
     setSheetVisible(false);
     setEditingEntry(null);
     setScannedFood(null);
-    router.push({ pathname: '/foods/scan', params: { destination: 'log' } });
   }, [router]);
+
+  const handleAfterDismiss = useCallback(() => {
+    const pending = pendingNavRef.current;
+    pendingNavRef.current = null;
+    if (pending) pending();
+  }, []);
 
   // When we return from the scanner, a log-destination draft may be waiting.
   // Claim it on focus, reopen the sheet with the food seeded. Non-log drafts
@@ -194,6 +210,7 @@ export default function TodayScreen() {
         initialEntry={editingEntry}
         initialScannedFood={scannedFood}
         onRequestScan={handleRequestScan}
+        onAfterDismiss={handleAfterDismiss}
       />
     </View>
   );
