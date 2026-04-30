@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, InteractionManager } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Plus } from 'phosphor-react-native';
@@ -126,6 +126,14 @@ export default function TodayScreen() {
   // When we return from the scanner, a log-destination draft may be waiting.
   // Claim it on focus, reopen the sheet with the food seeded. Non-log drafts
   // (e.g. a library scan) are put back for their intended consumer.
+  //
+  // CRITICAL iOS fix: setSheetVisible(true) must wait until UIKit's pop
+  // animation from the scanner has fully completed. Mounting a formSheet Modal
+  // while a navigation transition is still running puts UIKit in a phantom-
+  // presentation state where the sheet renders empty and the FAB underneath
+  // becomes unclickable. `InteractionManager.runAfterInteractions` defers the
+  // mount until all running animations / interactions are flushed, which is
+  // the documented React Native escape hatch for this exact race.
   useFocusEffect(
     useCallback(() => {
       const draft = takeScanDraft();
@@ -136,7 +144,10 @@ export default function TodayScreen() {
       }
       setEditingEntry(null);
       setScannedFood(draft.food);
-      setSheetVisible(true);
+      const handle = InteractionManager.runAfterInteractions(() => {
+        setSheetVisible(true);
+      });
+      return () => handle.cancel();
     }, [])
   );
 
