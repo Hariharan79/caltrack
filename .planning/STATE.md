@@ -101,12 +101,13 @@ All core flows tested on a physical iPhone via `npx expo start --tunnel --clear`
 | `lib/` coverage | ✅ ≥ 80% (last measured pre-Phase 19) |
 | Supabase MCP | ✅ connected |
 | Supabase schema | ✅ 5 tables + 1 view + RLS on all |
-| Supabase security advisors | not re-checked since Phase 11.5 |
-| Supabase performance advisors | not re-checked since Phase 11.5 |
+| Supabase security advisors | ✅ re-checked 2026-04-29 — 14 noisy/expected WARNs (12 GraphQL schema-visibility false positives, 2 `handle_new_user` SECURITY DEFINER which is the canonical Supabase trigger pattern) + 1 permanent free-tier limitation (see gotcha below) |
+| Supabase performance advisors | ✅ re-checked 2026-04-29 — 5 INFO "unused index" warnings on user-scoped indexes that haven't seen production traffic |
 | GitHub remote | ✅ public at Hariharan79/caltrack, history scrubbed of Claude attribution |
 
 ## Known gotchas (carry forward, read before touching anything)
 
+- **`auth_leaked_password_protection` advisor warning is permanent on free tier** — the HaveIBeenPwned check that the advisor recommends enabling is a Pro-only feature ($25/mo). Don't re-investigate; just ignore the WARN.
 - **Metro restart + Expo Go bridge bug** — before any `npx expo start`, run: `xcrun simctl terminate <UUID> host.exp.Exponent`. Symptom if skipped: `NativeModule: AsyncStorage is null` on import of `lib/supabase.ts`. It's never a code bug.
 - **Expo tunnel needs ngrok v3+** — `@expo/ngrok@4.1.3` ships v2 which the ngrok service rejects. We swap in brew's ngrok v3 binary as a symlink. See `~/.claude/projects/-Users-hari7aran-Desktop-caltrack-autopilot-test/memory/expo_tunnel_broken.md`.
 - **expo-router typed routes** — adding a new file-based route leaves `.expo/types/router.d.ts` stale. Fix: start Metro briefly with `npx expo start --no-dev --minify`, watch types regen, kill Metro, re-tsc.
